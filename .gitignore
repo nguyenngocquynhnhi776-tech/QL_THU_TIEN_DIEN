@@ -1,0 +1,8 @@
+# Loại bỏ thư mục chứa file biên dịch .class
+bin/
+*.class
+
+# Các file cấu hình của IDE (nếu có)
+.settings/
+.classpath
+.project

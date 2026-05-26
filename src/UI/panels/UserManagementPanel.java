@@ -1,0 +1,400 @@
+package UI.panels;
+
+import UI.components.*;
+import UI.theme.ThemeManager;
+import javax.swing.*;
+import javax.swing.table.*;
+import java.awt.*;
+import java.awt.event.*;
+import dao.UserDAO;
+import dao.impl.UserDAOImpl;
+import model.User;
+import util.PasswordUtil;
+import util.PermissionUtil;
+import session.UserSession;
+
+/**
+ * Quản lý người dùng hệ thống (chỉ Admin).
+ */
+public class UserManagementPanel extends BasePanel {
+
+    private final ModernTable table;
+    private final UserDAO userDAO = new UserDAOImpl();
+
+    public UserManagementPanel() {
+        super("Quản lý người dùng", "Phân quyền và quản lý tài khoản nhân viên hệ thống");
+
+        // ---- Toolbar ----
+        JPanel toolbar = new JPanel(new BorderLayout(UIConstants.SP_SM, 0));
+        toolbar.setOpaque(false);
+        toolbar.setBorder(BorderFactory.createEmptyBorder(0, 0, UIConstants.SP_MD, 0));
+
+        SearchField search = new SearchField("Tìm tên, tài khoản...");
+
+        RoundedButton addBtn = new RoundedButton("+ Thêm người dùng", UIConstants.BUTTON_RADIUS, UIConstants.PRIMARY);
+        addBtn.setPreferredSize(new Dimension(180, 36));
+        addBtn.addActionListener(e -> showUserDialog(false, -1));
+
+        String currentUserRole = UserSession.getInstance().getRole();
+        PermissionUtil.applyPermissions(currentUserRole, addBtn, null, null);
+
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        right.setOpaque(false); right.add(addBtn);
+
+        toolbar.add(search, BorderLayout.WEST);
+        toolbar.add(right,  BorderLayout.EAST);
+
+        // ---- Table ----
+        table = new ModernTable(new String[]{"Họ tên", "Tài khoản", "Vai trò", "Trạng thái", "Ngày tạo", "Thao tác"});
+        table.setColumnWidths(160, 110, 120, 100, 140, 180);
+        table.setColumnEditable(5, true);
+
+        // Role badge
+        table.setColumnRenderer(2, (tbl, val, sel, foc, row, col) -> {
+            String s = val == null ? "" : val.toString();
+            StatusBadge.Status st = s.contains("Quản trị") || s.contains("ADMIN") || s.contains("Quản lý") || s.contains("MANAGER")
+                ? StatusBadge.Status.ADMIN : StatusBadge.Status.STAFF;
+            return new StatusBadge(s, st);
+        });
+
+        // Active/Locked badge
+        table.setColumnRenderer(3, (tbl, val, sel, foc, row, col) -> {
+            String s = val == null ? "" : val.toString();
+            StatusBadge.Status st = s.contains("Hoạt động") || s.contains("ACTIVE") ? StatusBadge.Status.ACTIVE : StatusBadge.Status.LOCKED;
+            return new StatusBadge(s, st);
+        });
+
+        // Action buttons custom renderer and editor
+        table.setColumnRenderer(5, new ActionCellRenderer());
+        table.getTable().getColumnModel().getColumn(5).setCellEditor(new ActionCellEditor());
+
+        loadFromDatabase();
+
+        contentArea.add(toolbar, BorderLayout.NORTH);
+        contentArea.add(table,   BorderLayout.CENTER);
+    }
+
+    private JButton actionBtn(String text, Color color) {
+        JButton b = new JButton(text);
+        b.setFont(UIConstants.FONT_SMALL_BOLD);
+        b.setForeground(color);
+        b.setContentAreaFilled(false);
+        b.setBorderPainted(false);
+        b.setFocusPainted(false);
+        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        b.setMargin(new Insets(0, 0, 0, 0));
+        b.setPreferredSize(new Dimension(50, 24));
+        return b;
+    }
+
+    private void loadFromDatabase() {
+        table.getModel().setRowCount(0);
+        java.util.List<User> list = userDAO.getAll();
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm");
+        for (User u : list) {
+            String dateStr = u.getCreatedAt() != null ? sdf.format(u.getCreatedAt()) : "Chưa rõ";
+            table.addRow(new Object[]{
+                u.getFullName(),
+                u.getUsername(),
+                u.getRoleDisplay(),
+                u.getStatusDisplay(),
+                dateStr,
+                ""
+            });
+        }
+    }
+
+    private void editUser(int row) {
+        showUserDialog(true, row);
+    }
+
+    private void toggleLockUser(int row) {
+        String username = (String) table.getValueAt(row, 1);
+        User user = userDAO.findByUsername(username);
+        if (user != null) {
+            String currentStatus = user.getStatus();
+            String newStatus = "ACTIVE".equalsIgnoreCase(currentStatus) ? "LOCKED" : "ACTIVE";
+            user.setStatus(newStatus);
+            boolean updated = userDAO.update(user);
+            if (updated) {
+                loadFromDatabase();
+                String msg = "ACTIVE".equals(newStatus) ? "Mở khóa tài khoản thành công!" : "Khóa tài khoản thành công!";
+                ToastNotification.show(SwingUtilities.getWindowAncestor(this), msg, ToastNotification.Type.SUCCESS);
+            } else {
+                ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thay đổi trạng thái!", ToastNotification.Type.ERROR);
+            }
+        }
+    }
+
+    private void deleteUser(int row) {
+        String username = (String) table.getValueAt(row, 1);
+        boolean ok = ThemeManager.showConfirmDialog(
+            SwingUtilities.getWindowAncestor(this),
+            "Bạn có chắc muốn xóa tài khoản '" + username + "'?",
+            "Xóa tài khoản"
+        );
+        if (ok) {
+            User user = userDAO.findByUsername(username);
+            if (user != null) {
+                boolean deleted = userDAO.softDelete(user.getUserId());
+                if (deleted) {
+                    loadFromDatabase();
+                    ToastNotification.show(
+                        SwingUtilities.getWindowAncestor(this),
+                        "Xóa tài khoản thành công!",
+                        ToastNotification.Type.SUCCESS
+                    );
+                } else {
+                    ToastNotification.show(
+                        SwingUtilities.getWindowAncestor(this),
+                        "Lỗi xóa tài khoản!",
+                        ToastNotification.Type.ERROR
+                    );
+                }
+            }
+        }
+    }
+
+    private void showUserDialog(boolean isEdit, int row) {
+        String title = isEdit ? "Sửa người dùng" : "Thêm người dùng";
+        JDialog dlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
+        dlg.setSize(440, 340);
+        dlg.setLocationRelativeTo(this);
+
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBackground(Color.WHITE);
+        form.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(6, 8, 6, 8);
+        gc.fill = GridBagConstraints.HORIZONTAL;
+
+        RoundedTextField nameField = new RoundedTextField();
+        RoundedTextField userField = new RoundedTextField();
+        RoundedPasswordField passField = new RoundedPasswordField();
+        RoundedPasswordField confirmField = new RoundedPasswordField();
+        JComboBox<String> roleBox = new JComboBox<>(new String[]{
+            "Quản trị viên (ADMIN)",
+            "Quản lý (MANAGER)",
+            "Nhân viên (STAFF)",
+            "Xem báo cáo (VIEWER)"
+        });
+        roleBox.setFont(UIConstants.FONT_NORMAL);
+
+        if (isEdit) {
+            nameField.setText((String) table.getValueAt(row, 0));
+            userField.setText((String) table.getValueAt(row, 1));
+            userField.setEnabled(false); // Username is read-only when editing
+            
+            String roleVal = (String) table.getValueAt(row, 2);
+            if (roleVal != null) {
+                if (roleVal.contains("Quản trị") || roleVal.contains("ADMIN")) {
+                    roleBox.setSelectedIndex(0);
+                } else if (roleVal.contains("Quản lý") || roleVal.contains("MANAGER")) {
+                    roleBox.setSelectedIndex(1);
+                } else if (roleVal.contains("Xem") || roleVal.contains("VIEWER")) {
+                    roleBox.setSelectedIndex(3);
+                } else {
+                    roleBox.setSelectedIndex(2);
+                }
+            }
+        }
+
+        // Add to form layout
+        gc.gridx = 0; gc.gridy = 0; gc.weightx = 0;
+        form.add(new JLabel("Họ tên:") {{ setFont(UIConstants.FONT_NORMAL_BOLD); }}, gc);
+        gc.gridx = 1; gc.weightx = 1;
+        form.add(nameField, gc);
+
+        gc.gridx = 0; gc.gridy = 1; gc.weightx = 0;
+        form.add(new JLabel("Tài khoản:") {{ setFont(UIConstants.FONT_NORMAL_BOLD); }}, gc);
+        gc.gridx = 1; gc.weightx = 1;
+        form.add(userField, gc);
+
+        gc.gridx = 0; gc.gridy = 2; gc.weightx = 0;
+        form.add(new JLabel(isEdit ? "Mật khẩu mới:" : "Mật khẩu:") {{ setFont(UIConstants.FONT_NORMAL_BOLD); }}, gc);
+        gc.gridx = 1; gc.weightx = 1;
+        form.add(passField, gc);
+
+        gc.gridx = 0; gc.gridy = 3; gc.weightx = 0;
+        form.add(new JLabel("Xác nhận MK:") {{ setFont(UIConstants.FONT_NORMAL_BOLD); }}, gc);
+        gc.gridx = 1; gc.weightx = 1;
+        form.add(confirmField, gc);
+
+        gc.gridx = 0; gc.gridy = 4; gc.weightx = 0;
+        form.add(new JLabel("Vai trò:") {{ setFont(UIConstants.FONT_NORMAL_BOLD); }}, gc);
+        gc.gridx = 1; gc.weightx = 1;
+        form.add(roleBox, gc);
+
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        btnRow.setBackground(Color.WHITE);
+        RoundedButton cancel = new RoundedButton("Hủy", UIConstants.BUTTON_RADIUS, UIConstants.COLOR_TEXT_MUTED);
+        RoundedButton save   = new RoundedButton("Lưu", UIConstants.BUTTON_RADIUS, UIConstants.PRIMARY);
+        cancel.setPreferredSize(new Dimension(70, 34)); save.setPreferredSize(new Dimension(80, 34));
+
+        cancel.addActionListener(e -> dlg.dispose());
+        save.addActionListener(e -> {
+            String name = nameField.getText().trim();
+            String username = userField.getText().trim();
+            String pass = new String(passField.getPassword());
+            String confirm = new String(confirmField.getPassword());
+            String role = (String) roleBox.getSelectedItem();
+
+            if (name.isEmpty() || username.isEmpty()) {
+                ThemeManager.showConfirmDialog(dlg, "Vui lòng điền đầy đủ Họ tên và Tài khoản!", "Thông báo");
+                return;
+            }
+
+            if (!isEdit && pass.isEmpty()) {
+                ThemeManager.showConfirmDialog(dlg, "Vui lòng nhập mật khẩu!", "Thông báo");
+                return;
+            }
+
+            if (!pass.isEmpty() && !pass.equals(confirm)) {
+                ThemeManager.showConfirmDialog(dlg, "Mật khẩu xác nhận không khớp!", "Thông báo");
+                return;
+            }
+
+            String dbRole = "STAFF";
+            if (role.contains("ADMIN")) dbRole = "ADMIN";
+            else if (role.contains("MANAGER")) dbRole = "MANAGER";
+            else if (role.contains("VIEWER")) dbRole = "VIEWER";
+
+            if (isEdit) {
+                User existing = userDAO.findByUsername(username);
+                if (existing != null) {
+                    existing.setFullName(name);
+                    existing.setRole(dbRole);
+                    if (!pass.isEmpty()) {
+                        existing.setPasswordHash(PasswordUtil.hashPassword(pass));
+                    }
+                    boolean updated = userDAO.update(existing);
+                    if (updated) {
+                        loadFromDatabase();
+                        ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Cập nhật tài khoản thành công!", ToastNotification.Type.SUCCESS);
+                    } else {
+                        ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi cập nhật tài khoản!", ToastNotification.Type.ERROR);
+                    }
+                }
+            } else {
+                User checkDup = userDAO.findByUsername(username);
+                if (checkDup != null) {
+                    ThemeManager.showConfirmDialog(dlg, "Tài khoản đã tồn tại!", "Thông báo");
+                    return;
+                }
+
+                User newUser = new User();
+                newUser.setUsername(username);
+                newUser.setPasswordHash(PasswordUtil.hashPassword(pass));
+                newUser.setFullName(name);
+                newUser.setRole(dbRole);
+                newUser.setStatus("ACTIVE");
+
+                boolean inserted = userDAO.insert(newUser);
+                if (inserted) {
+                    loadFromDatabase();
+                    ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Thêm tài khoản thành công!", ToastNotification.Type.SUCCESS);
+                } else {
+                    ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thêm tài khoản vào CSDL!", ToastNotification.Type.ERROR);
+                }
+            }
+            dlg.dispose();
+        });
+
+        btnRow.add(cancel); btnRow.add(save);
+
+        dlg.setLayout(new BorderLayout());
+        dlg.add(form, BorderLayout.CENTER);
+        dlg.add(btnRow, BorderLayout.SOUTH);
+        dlg.getContentPane().setBackground(Color.WHITE);
+        dlg.setVisible(true);
+    }
+
+    private class ActionCellRenderer extends javax.swing.table.DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable tbl, Object val,
+                boolean sel, boolean focus, int row, int col) {
+            JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
+            p.setOpaque(true);
+
+            String status = (String) tbl.getValueAt(row, 3);
+            JButton edit = actionBtn("Sửa", UIConstants.PRIMARY);
+            JButton lock = actionBtn("Bị khóa".equals(status) ? "Mở" : "Khóa", UIConstants.WARNING);
+            JButton del = actionBtn("Xóa", UIConstants.ERROR);
+
+            String currentUserRole = UserSession.getInstance().getRole();
+            edit.setEnabled(PermissionUtil.canEdit(currentUserRole));
+            lock.setEnabled(PermissionUtil.canEdit(currentUserRole));
+            del.setEnabled(PermissionUtil.canDelete(currentUserRole));
+
+            p.add(edit);
+            p.add(lock);
+            p.add(del);
+
+            return p;
+        }
+    }
+
+    private class ActionCellEditor extends AbstractCellEditor implements javax.swing.table.TableCellEditor {
+        private final JPanel panel;
+        private int currentRow;
+
+        public ActionCellEditor() {
+            panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
+            panel.setOpaque(true);
+
+            JButton edit = actionBtn("Sửa", UIConstants.PRIMARY);
+            JButton lock = actionBtn("Khóa", UIConstants.WARNING);
+            JButton del = actionBtn("Xóa", UIConstants.ERROR);
+
+            String currentUserRole = UserSession.getInstance().getRole();
+            edit.setEnabled(PermissionUtil.canEdit(currentUserRole));
+            lock.setEnabled(PermissionUtil.canEdit(currentUserRole));
+            del.setEnabled(PermissionUtil.canDelete(currentUserRole));
+
+            edit.addActionListener(e -> {
+                fireEditingStopped();
+                editUser(currentRow);
+            });
+
+            lock.addActionListener(e -> {
+                fireEditingStopped();
+                toggleLockUser(currentRow);
+            });
+
+            del.addActionListener(e -> {
+                fireEditingStopped();
+                deleteUser(currentRow);
+            });
+
+            panel.add(edit);
+            panel.add(lock);
+            panel.add(del);
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable tbl, Object val,
+                boolean isSelected, int row, int col) {
+            currentRow = row;
+            JButton lockBtn = (JButton) panel.getComponent(1);
+            String status = (String) tbl.getValueAt(row, 3);
+            lockBtn.setText("Bị khóa".equals(status) ? "Mở" : "Khóa");
+
+            if (tbl.isRowSelected(row)) {
+                panel.setBackground(UIConstants.TABLE_SELECTION);
+            } else {
+                panel.setBackground(row % 2 == 0 ? UIConstants.TABLE_ROW_EVEN : UIConstants.TABLE_ROW_ODD);
+            }
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return "";
+        }
+
+        @Override
+        public boolean isCellEditable(java.util.EventObject e) {
+            return true;
+        }
+    }
+}
