@@ -42,4 +42,10 @@ public interface BillDAO {
 
     /** Checks if a bill already exists for a given readingId. */
     boolean existsForReading(int readingId);
+
+    /** Returns the bill for a given readingId, or null. */
+    Bill findByReading(int readingId);
+
+    /** Updates the TotalAmount (and optionally resets PaymentStatus) for an existing bill. */
+    boolean updateAmount(int billId, double newTotal);
 }

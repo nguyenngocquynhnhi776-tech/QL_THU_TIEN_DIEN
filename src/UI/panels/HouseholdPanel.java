@@ -82,6 +82,7 @@ public class HouseholdPanel extends BasePanel {
         RoundedButton addAreaBtn = new RoundedButton("+ Thêm khu vực", UIConstants.BUTTON_RADIUS, UIConstants.PRIMARY);
         addAreaBtn.setPreferredSize(new Dimension(160, 36));
         addAreaBtn.addActionListener(e -> showAreaDialog(false, null));
+        addAreaBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_CREATE));
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
@@ -133,6 +134,11 @@ public class HouseholdPanel extends BasePanel {
     }
 
     private void showAreaDialog(boolean isEdit, Area existing) {
+        model.Permission perm = isEdit ? model.Permission.HOUSEHOLD_UPDATE : model.Permission.HOUSEHOLD_CREATE;
+        if (!util.PermissionManager.getInstance().checkPermission(perm)) {
+            return;
+        }
+
         String title = isEdit ? "Sửa khu vực" : "Thêm khu vực mới";
         JDialog dlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dlg.setSize(450, 310);
@@ -223,6 +229,10 @@ public class HouseholdPanel extends BasePanel {
     }
 
     private void deactivateArea(int areaId, String areaCode) {
+        if (!util.PermissionManager.getInstance().checkPermission(model.Permission.HOUSEHOLD_DELETE)) {
+            return;
+        }
+
         boolean ok = ThemeManager.showConfirmDialog(
             SwingUtilities.getWindowAncestor(this),
             "Bạn có chắc muốn vô hiệu hóa khu vực " + areaCode + "?\n"
@@ -289,6 +299,7 @@ public class HouseholdPanel extends BasePanel {
         RoundedButton addHhBtn = new RoundedButton("+ Thêm hộ mới", UIConstants.BUTTON_RADIUS, UIConstants.PRIMARY);
         addHhBtn.setPreferredSize(new Dimension(155, 36));
         addHhBtn.addActionListener(e -> showHouseholdDialog(false, null));
+        addHhBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_CREATE));
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false);
@@ -356,6 +367,11 @@ public class HouseholdPanel extends BasePanel {
     }
 
     private void showHouseholdDialog(boolean isEdit, Household existing) {
+        model.Permission perm = isEdit ? model.Permission.HOUSEHOLD_UPDATE : model.Permission.HOUSEHOLD_CREATE;
+        if (!util.PermissionManager.getInstance().checkPermission(perm)) {
+            return;
+        }
+
         String title = isEdit ? "Sửa thông tin hộ" : "Thêm hộ gia đình mới";
         JDialog dlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dlg.setSize(520, 420);
@@ -517,6 +533,10 @@ public class HouseholdPanel extends BasePanel {
     }
 
     private void deactivateHousehold(int hhId, String hhCode) {
+        if (!util.PermissionManager.getInstance().checkPermission(model.Permission.HOUSEHOLD_DELETE)) {
+            return;
+        }
+
         boolean ok = ThemeManager.showConfirmDialog(
             SwingUtilities.getWindowAncestor(this),
             "Bạn có chắc muốn vô hiệu hóa hộ " + hhCode + "?",
@@ -541,8 +561,10 @@ public class HouseholdPanel extends BasePanel {
         }
     }
 
+
+
     // ================================================================
-    //  INNER CLASSES — Area action column
+    //  INNER CLASSES — Household action column
     // ================================================================
 
     private class AreaActionRenderer extends DefaultTableCellRenderer {
@@ -553,8 +575,14 @@ public class HouseholdPanel extends BasePanel {
             p.setOpaque(true);
             p.setBackground(sel ? UIConstants.TABLE_SELECTION
                 : (row % 2 == 0 ? UIConstants.TABLE_ROW_EVEN : UIConstants.TABLE_ROW_ODD));
-            p.add(actionBtn("Sửa",       UIConstants.PRIMARY));
-            p.add(actionBtn("Vô hiệu",   UIConstants.ERROR));
+            JButton edit = actionBtn("Sửa",       UIConstants.PRIMARY);
+            JButton deac = actionBtn("Vô hiệu",   UIConstants.ERROR);
+            
+            edit.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_UPDATE));
+            deac.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_DELETE));
+            
+            p.add(edit);
+            p.add(deac);
             return p;
         }
     }
@@ -572,7 +600,6 @@ public class HouseholdPanel extends BasePanel {
 
             editBtn.addActionListener(e -> {
                 fireEditingStopped();
-                // Look up Area from the table row
                 String code = (String) areaTable.getValueAt(currentRow, 0);
                 Area area = areaService.getByCode(code);
                 if (area != null) showAreaDialog(true, area);
@@ -598,6 +625,12 @@ public class HouseholdPanel extends BasePanel {
         public Component getTableCellEditorComponent(JTable tbl, Object val,
                 boolean isSelected, int row, int col) {
             currentRow = row;
+            JButton editBtn = (JButton) panel.getComponent(0);
+            JButton deacBtn = (JButton) panel.getComponent(1);
+            
+            editBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_UPDATE));
+            deacBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_DELETE));
+
             panel.setBackground(isSelected ? UIConstants.TABLE_SELECTION
                 : (row % 2 == 0 ? UIConstants.TABLE_ROW_EVEN : UIConstants.TABLE_ROW_ODD));
             return panel;
@@ -607,10 +640,6 @@ public class HouseholdPanel extends BasePanel {
         @Override public boolean isCellEditable(java.util.EventObject e) { return true; }
     }
 
-    // ================================================================
-    //  INNER CLASSES — Household action column
-    // ================================================================
-
     private class HhActionRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable tbl, Object val,
@@ -619,8 +648,14 @@ public class HouseholdPanel extends BasePanel {
             p.setOpaque(true);
             p.setBackground(sel ? UIConstants.TABLE_SELECTION
                 : (row % 2 == 0 ? UIConstants.TABLE_ROW_EVEN : UIConstants.TABLE_ROW_ODD));
-            p.add(actionBtn("Sửa",     UIConstants.PRIMARY));
-            p.add(actionBtn("Vô hiệu", UIConstants.ERROR));
+            JButton edit = actionBtn("Sửa",     UIConstants.PRIMARY);
+            JButton deac = actionBtn("Vô hiệu", UIConstants.ERROR);
+            
+            edit.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_UPDATE));
+            deac.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_DELETE));
+            
+            p.add(edit);
+            p.add(deac);
             return p;
         }
     }
@@ -662,6 +697,12 @@ public class HouseholdPanel extends BasePanel {
         public Component getTableCellEditorComponent(JTable tbl, Object val,
                 boolean isSelected, int row, int col) {
             currentRow = row;
+            JButton editBtn = (JButton) panel.getComponent(0);
+            JButton deacBtn = (JButton) panel.getComponent(1);
+
+            editBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_UPDATE));
+            deacBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.HOUSEHOLD_DELETE));
+
             panel.setBackground(isSelected ? UIConstants.TABLE_SELECTION
                 : (row % 2 == 0 ? UIConstants.TABLE_ROW_EVEN : UIConstants.TABLE_ROW_ODD));
             return panel;

@@ -26,7 +26,6 @@ public class RoundedTextField extends JTextField {
         setFont(UIConstants.FONT_NORMAL);
         setForeground(UIConstants.COLOR_TEXT_PRIMARY);
         setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-        setPreferredSize(new Dimension(getPreferredSize().width, 38));
 
         addFocusListener(new FocusAdapter() {
             @Override public void focusGained(FocusEvent e) { focused = true;  repaint(); }
@@ -35,23 +34,32 @@ public class RoundedTextField extends JTextField {
     }
 
     @Override
+    public Dimension getPreferredSize() {
+        Dimension d = super.getPreferredSize();
+        d.height = 38;
+        return d;
+    }
+
+    @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+        boolean editable = isEditable();
+
         // Glow
-        if (focused) {
+        if (focused && editable) {
             g2.setColor(UIConstants.INPUT_FOCUS_GLOW);
             g2.setStroke(new BasicStroke(3f));
             g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, RADIUS + 2, RADIUS + 2);
         }
 
         // Background
-        g2.setColor(UIConstants.INPUT_BG);
+        g2.setColor(editable ? UIConstants.INPUT_BG : new Color(0xECF0F0));
         g2.fillRoundRect(2, 2, getWidth() - 5, getHeight() - 5, RADIUS, RADIUS);
 
         // Border
-        g2.setColor(focused ? UIConstants.INPUT_FOCUS : UIConstants.INPUT_BORDER);
+        g2.setColor((focused && editable) ? UIConstants.INPUT_FOCUS : UIConstants.INPUT_BORDER);
         g2.setStroke(new BasicStroke(1.5f));
         g2.drawRoundRect(2, 2, getWidth() - 5, getHeight() - 5, RADIUS, RADIUS);
 

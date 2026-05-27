@@ -118,6 +118,13 @@ public class HouseholdServiceImpl implements HouseholdService {
         }
 
         boolean success = householdDAO.insert(hh);
+        if (success) {
+            new NotificationServiceImpl().addNotification(
+                "Đăng ký hộ dân mới",
+                "Đã đăng ký thành công hộ " + hh.getOwnerName() + " (" + hh.getHouseholdCode() + ").",
+                "success", "check-circle"
+            );
+        }
         return success ? null : "Lỗi lưu dữ liệu vào cơ sở dữ liệu!";
     }
 

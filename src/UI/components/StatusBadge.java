@@ -10,7 +10,8 @@ public class StatusBadge extends JLabel {
 
     public enum Status {
         PAID,       // Đã thanh toán  — green
-        UNPAID,     // Chưa thanh toán — red/pink
+        UNPAID,     // Chưa thanh toán — orange
+        OVERDUE,    // Quá hạn         — red
         WARNING,    // Cảnh báo        — orange
         ACTIVE,     // Hoạt động       — green
         LOCKED,     // Bị khóa         — gray
@@ -44,14 +45,15 @@ public class StatusBadge extends JLabel {
                 fgColor = UIConstants.SUCCESS;
                 break;
             case UNPAID:
-            case AI_HIGH:
-                bgColor = UIConstants.ERROR_BG;
-                fgColor = UIConstants.ERROR;
-                break;
             case WARNING:
             case AI_MEDIUM:
                 bgColor = UIConstants.WARNING_BG;
                 fgColor = UIConstants.WARNING;
+                break;
+            case OVERDUE:
+            case AI_HIGH:
+                bgColor = UIConstants.ERROR_BG;
+                fgColor = UIConstants.ERROR;
                 break;
             case LOCKED:
                 bgColor = new Color(0xEEEEEE);

@@ -22,6 +22,18 @@ public interface MeterReadingDAO {
     boolean insert(MeterReading reading);
 
     /**
+     * Inserts a new reading and returns the auto-generated ReadingID.
+     * Returns -1 on failure.
+     */
+    int insertAndGetId(MeterReading reading);
+
+    /**
+     * Updates an existing reading (same householdId/month/year).
+     * @return true on success.
+     */
+    boolean update(MeterReading reading);
+
+    /**
      * Returns an existing reading for the same household/month/year,
      * or null if none (used for duplicate check).
      */

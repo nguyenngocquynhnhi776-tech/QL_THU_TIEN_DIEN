@@ -57,7 +57,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             if (PasswordUtil.checkPassword(oldPassword, user.getPasswordHash())) {
                 // Update with new password hash
                 user.setPasswordHash(PasswordUtil.hashPassword(newPassword));
-                return userDAO.update(user);
+                boolean ok = userDAO.update(user);
+                if (ok) {
+                    new NotificationServiceImpl().addNotification(
+                        "Thay đổi mật khẩu",
+                        "Tài khoản " + username + " đã thay đổi mật khẩu bảo mật.",
+                        "info", "info"
+                    );
+                }
+                return ok;
             }
         }
         return false;

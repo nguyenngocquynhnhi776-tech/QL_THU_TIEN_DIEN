@@ -24,6 +24,16 @@ public interface BillService {
      */
     String generateBill(int readingId);
 
+    /**
+     * If no bill exists for readingId, generates one.
+     * If a bill already exists, recalculates and updates its amount.
+     * @return null on success, error string on failure
+     */
+    String generateOrUpdateBill(int readingId);
+
+    boolean payBill(int billId);
+
+
     int countUnpaid();
 
     int countPaid();

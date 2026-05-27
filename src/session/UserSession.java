@@ -1,6 +1,7 @@
 package session;
 
 import model.User;
+import model.Role;
 
 /**
  * UserSession singleton to store information of the currently logged-in user.
@@ -12,7 +13,7 @@ public class UserSession {
     private int    userId;
     private String username;
     private String fullName;
-    private String role;
+    private Role   role;
     private boolean isLoggedIn;
 
     private UserSession() {
@@ -41,8 +42,11 @@ public class UserSession {
         this.userId     = user.getUserId();
         this.username   = user.getUsername();
         this.fullName   = user.getFullName();
-        this.role       = user.getRole();
+        this.role       = Role.fromCode(user.getRole());
         this.isLoggedIn = true;
+        
+        // Load permissions for the role
+        util.PermissionManager.getInstance().loadPermissions(this.role);
     }
 
     /**
@@ -54,6 +58,9 @@ public class UserSession {
         this.fullName   = null;
         this.role       = null;
         this.isLoggedIn = false;
+        
+        // Clear permissions
+        util.PermissionManager.getInstance().clear();
     }
 
     /**
@@ -67,7 +74,7 @@ public class UserSession {
         user.setUserId(this.userId);
         user.setUsername(this.username);
         user.setFullName(this.fullName);
-        user.setRole(this.role);
+        user.setRole(this.role != null ? this.role.getCode() : null);
         // Password hash and status are omitted/null for safety in UI/session layer
         return user;
     }
@@ -88,8 +95,12 @@ public class UserSession {
         return fullName;
     }
 
-    public String getRole() {
+    public Role getRole() {
         return role;
+    }
+
+    public String getRoleCode() {
+        return role != null ? role.getCode() : null;
     }
 
     public boolean isLoggedIn() {

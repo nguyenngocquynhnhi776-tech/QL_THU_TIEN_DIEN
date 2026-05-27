@@ -18,13 +18,18 @@ import model.User;
  */
 public class MainForm extends JFrame {
 
+    private static MainForm instance;
     private final CardLayout      cardLayout;
     private final JPanel          mainContent;
     private final ArrayList<SidebarButton> menuButtons = new ArrayList<>();
-    private final boolean         isAdmin;
+    private final java.util.Map<String, SidebarButton> sidebarButtons = new java.util.HashMap<>();
     private final String          username;
     private final JLabel          statusTimeLbl;
     private final JLabel          breadcrumbLbl;
+
+    public static MainForm getInstance() {
+        return instance;
+    }
 
     // Panel keys
     private static final String[] CARDS = {
@@ -40,13 +45,13 @@ public class MainForm extends JFrame {
 
     public MainForm() {
         this(
-            UserSession.getInstance().getRole() != null && "ADMIN".equalsIgnoreCase(UserSession.getInstance().getRole()),
+            UserSession.getInstance().getRole() == model.Role.ADMIN,
             UserSession.getInstance().getUsername() != null ? UserSession.getInstance().getUsername() : "admin"
         );
     }
 
     public MainForm(boolean isAdmin, String username) {
-        this.isAdmin  = isAdmin;
+        instance = this;
         this.username = username;
 
         // Populating session for backward compatibility/testing
@@ -55,7 +60,7 @@ public class MainForm extends JFrame {
             testUser.setUserId(999);
             testUser.setUsername(username);
             testUser.setFullName(username.equals("admin") ? "Nguyễn Quản Trị" : "Nhân viên");
-            testUser.setRole(isAdmin ? "ADMIN" : "STAFF");
+            testUser.setRole(isAdmin ? "ADMIN" : "CASHIER");
             testUser.setStatus("ACTIVE");
             UserSession.getInstance().login(testUser);
         }
@@ -112,6 +117,7 @@ public class MainForm extends JFrame {
         Timer clock = new Timer(1000, e -> updateClock());
         clock.start();
         updateClock();
+        updateNotificationBadge();
 
         // Select dashboard by default
         if (!menuButtons.isEmpty()) {
@@ -173,10 +179,11 @@ public class MainForm extends JFrame {
             final String card  = CARDS[i];
             final String label = LABELS[i];
 
-            // Skip USERS panel for non-admin
-            if ("USERS".equals(card) && !isAdmin) continue;
+            // Use PermissionManager to filter sidebar menus
+            if (!util.PermissionManager.getInstance().isMenuVisible(card)) continue;
 
             SidebarButton btn = new SidebarButton(ICONS[i], label);
+            sidebarButtons.put(card, btn);
             final int idx = menuButtons.size();
 
             btn.addActionListener(e -> {
@@ -248,16 +255,8 @@ public class MainForm extends JFrame {
         uname.setFont(UIConstants.FONT_NORMAL_BOLD);
         uname.setForeground(Color.WHITE);
         
-        String displayRole = "Nhân viên";
-        String currentRole = UserSession.getInstance().getRole();
-        if (currentRole != null) {
-            switch (currentRole.toUpperCase()) {
-                case "ADMIN":   displayRole = "Quản trị viên"; break;
-                case "MANAGER": displayRole = "Quản lý"; break;
-                case "STAFF":   displayRole = "Nhân viên"; break;
-                case "VIEWER":  displayRole = "Xem báo cáo"; break;
-            }
-        }
+        model.Role role = UserSession.getInstance().getRole();
+        String displayRole = (role != null) ? role.getDisplayName() : "Nhân viên";
         JLabel urole = new JLabel(displayRole);
         urole.setFont(UIConstants.FONT_SMALL);
         urole.setForeground(new Color(255, 255, 255, 160));
@@ -414,6 +413,23 @@ public class MainForm extends JFrame {
     private final java.util.Map<String, JPanel> loadedPanels = new java.util.HashMap<>();
 
     private void showPanel(String card, String label) {
+        // Dashboard is never cached — always show fresh stats
+        if ("DASHBOARD".equals(card)) {
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            SwingUtilities.invokeLater(() -> {
+                JPanel p = createPanel(card);
+                if (loadedPanels.containsKey(card)) {
+                    mainContent.remove(loadedPanels.get(card));
+                }
+                loadedPanels.put(card, p);
+                mainContent.add(p, card);
+                cardLayout.show(mainContent, card);
+                breadcrumbLbl.setText(label);
+                setCursor(Cursor.getDefaultCursor());
+            });
+            return;
+        }
+
         if (!loadedPanels.containsKey(card)) {
             setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
             SwingUtilities.invokeLater(() -> {
@@ -425,9 +441,55 @@ public class MainForm extends JFrame {
                 setCursor(Cursor.getDefaultCursor());
             });
         } else {
+            // Refresh data in panel if it's already cached
+            JPanel existing = loadedPanels.get(card);
+            if (existing instanceof InvoicePanel) {
+                ((InvoicePanel) existing).reloadBills();
+                System.out.println("[INFO] Bills reloaded on INVOICE panel navigation.");
+            } else if (existing instanceof BillingPanel) {
+                ((BillingPanel) existing).reloadTable();
+                System.out.println("[INFO] Billing panel reloaded on BILLING panel navigation.");
+            } else if (existing instanceof ElectricityIndexPanel) {
+                ((ElectricityIndexPanel) existing).refreshData();
+                System.out.println("[INFO] Index panel refreshed on INDEX panel navigation.");
+            } else if (existing instanceof PaymentPanel) {
+                ((PaymentPanel) existing).refreshData();
+                System.out.println("[INFO] Payment panel refreshed on PAYMENT panel navigation.");
+            }
             cardLayout.show(mainContent, card);
             breadcrumbLbl.setText(label);
+            updateNotificationBadge();
         }
+    }
+
+    public void updateNotificationBadge() {
+        new SwingWorker<Integer, Void>() {
+            @Override
+            protected Integer doInBackground() {
+                try {
+                    return new service.impl.NotificationServiceImpl().getUnreadCount();
+                } catch (Exception ex) {
+                    System.err.println("[WARN] Failed to get unread notifications count: " + ex.getMessage());
+                    return 0;
+                }
+            }
+            @Override
+            protected void done() {
+                try {
+                    int count = get();
+                    SidebarButton btn = sidebarButtons.get("NOTIF");
+                    if (btn != null) {
+                        if (count > 0) {
+                            btn.setText("Thông báo (" + count + ")");
+                        } else {
+                            btn.setText("Thông báo");
+                        }
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
     }
 
     private JPanel createPanel(String card) {

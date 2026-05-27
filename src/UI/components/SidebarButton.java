@@ -10,6 +10,7 @@ import javax.swing.*;
  */
 public class SidebarButton extends JButton {
 
+    private JLabel  textLbl;
     private boolean selected    = false;
     private float   hoverAlpha  = 0f;
     private boolean entering    = false;
@@ -37,7 +38,7 @@ public class SidebarButton extends JButton {
         iconLbl.setVerticalAlignment(SwingConstants.CENTER);
 
         // Label text
-        JLabel textLbl = new JLabel(label);
+        textLbl = new JLabel(label);
         textLbl.setFont(UIConstants.FONT_NORMAL);
         textLbl.setForeground(UIConstants.COLOR_SIDEBAR_TEXT);
 
@@ -80,6 +81,16 @@ public class SidebarButton extends JButton {
     }
 
     public boolean isSelectedStatus() { return selected; }
+
+    @Override
+    public void setText(String text) {
+        // Chỉ cập nhật textLbl — KHÔNG gọi super.setText() vì JButton
+        // đã dùng BorderLayout với textLbl riêng. Gọi super sẽ khiến
+        // text JButton gốc render chồng lên textLbl gây hiện tượng duplicate.
+        if (textLbl != null) {
+            textLbl.setText(text);
+        }
+    }
 
     @Override
     protected void paintComponent(Graphics g) {

@@ -18,13 +18,13 @@ import java.util.List;
  */
 public class BillServiceImpl implements BillService {
 
-    private final BillDAO        billDAO;
+    private final BillDAO         billDAO;
     private final MeterReadingDAO readingDAO;
     private final PriceTierService priceTierService;
 
     public BillServiceImpl() {
-        this.billDAO         = new BillDAOImpl();
-        this.readingDAO      = new MeterReadingDAOImpl();
+        this.billDAO          = new BillDAOImpl();
+        this.readingDAO       = new MeterReadingDAOImpl();
         this.priceTierService = new PriceTierServiceImpl();
     }
 
@@ -58,12 +58,7 @@ public class BillServiceImpl implements BillService {
 
     /**
      * Generates a bill from an existing METER_READING row.
-     * Steps:
-     *  1. Load MeterReading from DB.
-     *  2. Verify no bill already exists for this reading.
-     *  3. Calculate total from tiered pricing (DB-sourced tiers).
-     *  4. Generate BillCode: HD + YYYYMM + running number.
-     *  5. Insert BILL row with PaymentStatus = 'UNPAID'.
+     * Prevents duplicates — returns error string if bill already exists.
      */
     @Override
     public String generateBill(int readingId) {
@@ -72,30 +67,77 @@ public class BillServiceImpl implements BillService {
             return "Không tìm thấy bản ghi chỉ số (ReadingID=" + readingId + ")!";
         }
 
-        // Prevent duplicate bills
         if (billDAO.existsForReading(readingId)) {
-            return "Hóa đơn cho chỉ số tháng " + reading.getPeriodDisplay() +
-                   " của hộ " + reading.getHouseholdCode() + " đã được tạo rồi!";
+            return "Hóa đơn cho chỉ số tháng " + reading.getPeriodDisplay()
+                + " của hộ " + reading.getHouseholdCode() + " đã được tạo rồi!";
         }
 
-        // Calculate total from live pricing tiers
+        return doInsertBill(reading);
+    }
+
+    /**
+     * If no bill exists for readingId, generates one.
+     * If a bill already exists, recalculates and updates its amount.
+     */
+    @Override
+    public String generateOrUpdateBill(int readingId) {
+        MeterReading reading = readingDAO.findById(readingId);
+        if (reading == null) {
+            return "Không tìm thấy bản ghi chỉ số (ReadingID=" + readingId + ")!";
+        }
+
+        Bill existing = billDAO.findByReading(readingId);
+        if (existing != null) {
+            double newTotal = priceTierService.calculateTotal(reading.getConsumption());
+            boolean ok = billDAO.updateAmount(existing.getBillId(), newTotal);
+            System.out.println("[INFO] Bill updated for ReadingID=" + readingId
+                + " BillCode=" + existing.getBillCode());
+            return ok ? null : "Lỗi cập nhật hóa đơn!";
+        }
+
+        return doInsertBill(reading);
+    }
+
+    /** Shared insert logic used by generateBill and generateOrUpdateBill. */
+    private String doInsertBill(MeterReading reading) {
         double total = priceTierService.calculateTotal(reading.getConsumption());
         if (total <= 0 && reading.getConsumption() > 0) {
             return "Không tìm thấy bảng giá điện! Vui lòng kiểm tra cài đặt bậc giá.";
         }
 
-        // Generate BillCode
         String billCode = billDAO.getNextBillCode(reading.getMonth(), reading.getYear());
 
         Bill bill = new Bill();
         bill.setBillCode(billCode);
         bill.setHouseholdId(reading.getHouseholdId());
-        bill.setReadingId(readingId);
+        bill.setReadingId(reading.getReadingId());
         bill.setTotalAmount(total);
         bill.setPaymentStatus("UNPAID");
 
         boolean ok = billDAO.insert(bill);
+        if (ok) {
+            System.out.println("[INFO] Bill generated. BillCode=" + billCode
+                + " HouseholdID=" + reading.getHouseholdId()
+                + " Period=" + reading.getPeriodDisplay()
+                + " Total=" + String.format("%.0f", total));
+            try {
+                new NotificationServiceImpl().addNotification(
+                    "Tạo hóa đơn thành công",
+                    "Đã tạo hóa đơn " + billCode + " cho hộ " + reading.getHouseholdCode() + " với số tiền " + String.format("%,.0f đ", total) + " cho kỳ " + reading.getPeriodDisplay() + ".",
+                    "success", "check-circle"
+                );
+            } catch (Exception e) {
+                System.err.println("[WARN] failed to generate notification: " + e.getMessage());
+            }
+        }
         return ok ? null : "Lỗi tạo hóa đơn vào cơ sở dữ liệu!";
+    }
+
+    @Override
+    public boolean payBill(int billId) {
+        boolean ok = billDAO.updatePaymentStatus(billId, "PAID");
+        if (ok) System.out.println("[INFO] Payment completed. BillID=" + billId);
+        return ok;
     }
 
     @Override

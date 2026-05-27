@@ -1,0 +1,44 @@
+package model;
+
+/**
+ * Permission enum representing the detailed action permissions.
+ */
+public enum Permission {
+    // Người dùng
+    USER_VIEW, USER_CREATE, USER_UPDATE, USER_DELETE,
+    USER_RESET_PASSWORD, USER_LOCK, USER_UNLOCK, USER_ASSIGN_ROLE,
+
+    // Hộ gia đình
+    HOUSEHOLD_VIEW, HOUSEHOLD_CREATE, HOUSEHOLD_UPDATE,
+    HOUSEHOLD_DELETE, HOUSEHOLD_SEARCH,
+
+    // Chỉ số điện
+    INDEX_VIEW, INDEX_CREATE, INDEX_UPDATE, INDEX_DELETE,
+
+    // Tính tiền điện
+    BILLING_CALCULATE, BILLING_BATCH,
+
+    // Hóa đơn
+    INVOICE_VIEW, INVOICE_CREATE, INVOICE_UPDATE, INVOICE_CANCEL,
+
+    // Thanh toán
+    PAYMENT_VIEW, PAYMENT_CONFIRM, PAYMENT_CANCEL,
+    PAYMENT_COLLECT, PAYMENT_PRINT_RECEIPT,
+
+    // Thống kê
+    STATS_VIEW,
+
+    // AI Phân tích
+    AI_VIEW,
+
+    // Thông báo
+    NOTIF_VIEW, NOTIF_CREATE, NOTIF_SEND,
+
+    // Hệ thống
+    SYSTEM_VIEW, SYSTEM_MANAGE,
+
+    // Menu visibility
+    MENU_USERS, MENU_HOUSEHOLD, MENU_INDEX, MENU_BILLING,
+    MENU_INVOICE, MENU_PAYMENT, MENU_STATS, MENU_AI,
+    MENU_NOTIF, MENU_SYSTEM
+}

@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import util.PasswordUtil;
 
 /**
@@ -33,6 +35,7 @@ public class DatabaseInitializer {
             } else {
                 System.out.println("USERS table already exists.");
             }
+            migrateRoleColumn(conn);
             seedAdminUser(conn);
 
             // 2. Area Table
@@ -87,6 +90,15 @@ public class DatabaseInitializer {
             } else {
                 System.out.println("PAYMENT table already exists.");
             }
+            migratePaymentMethodColumn(conn);
+
+            // 8. Notification Table
+            if (!checkTableExists(conn, "NOTIFICATION")) {
+                System.out.println("NOTIFICATION table does not exist. Creating table...");
+                createNotificationTable(conn);
+            } else {
+                System.out.println("NOTIFICATION table already exists.");
+            }
 
         } catch (SQLException e) {
             System.err.println("DatabaseInitializer SQL Exception: " + e.getMessage());
@@ -124,7 +136,7 @@ public class DatabaseInitializer {
                    + "  Username VARCHAR(50) UNIQUE NOT NULL,"
                    + "  PasswordHash VARCHAR(255) NOT NULL,"
                    + "  FullName NVARCHAR(100),"
-                   + "  Role VARCHAR(20) DEFAULT 'STAFF',"
+                   + "  Role VARCHAR(50) DEFAULT 'CASHIER',"
                    + "  Status VARCHAR(20) DEFAULT 'ACTIVE',"
                    + "  CreatedAt DATETIME DEFAULT GETDATE()"
                    + ")";
@@ -132,6 +144,43 @@ public class DatabaseInitializer {
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(sql);
             System.out.println("USERS table created successfully.");
+        }
+    }
+
+    private static void migrateRoleColumn(Connection conn) throws SQLException {
+        DatabaseMetaData dbmd = conn.getMetaData();
+        boolean roleColumnExists = false;
+        try (ResultSet rs = dbmd.getColumns(null, null, "USERS", "Role")) {
+            if (rs.next()) {
+                roleColumnExists = true;
+            }
+        }
+        if (!roleColumnExists) {
+            try (ResultSet rs = dbmd.getColumns(null, null, "users", "role")) {
+                if (rs.next()) {
+                    roleColumnExists = true;
+                }
+            }
+        }
+
+        try (Statement stmt = conn.createStatement()) {
+            if (!roleColumnExists) {
+                System.out.println("Role column does not exist. Adding...");
+                stmt.executeUpdate("ALTER TABLE USERS ADD Role VARCHAR(50) DEFAULT 'CASHIER'");
+            } else {
+                System.out.println("Role column exists. Ensuring size/type...");
+                try {
+                    stmt.executeUpdate("ALTER TABLE USERS ALTER COLUMN Role VARCHAR(50)");
+                } catch (Exception e) {
+                    System.out.println("Could not alter column size: " + e.getMessage());
+                }
+            }
+
+            // Map old roles to new roles
+            System.out.println("Migrating legacy roles to new RBAC roles...");
+            stmt.executeUpdate("UPDATE USERS SET Role = 'CUSTOMER_MANAGER' WHERE UPPER(Role) = 'MANAGER'");
+            stmt.executeUpdate("UPDATE USERS SET Role = 'METER_STAFF' WHERE UPPER(Role) = 'STAFF'");
+            stmt.executeUpdate("UPDATE USERS SET Role = 'CASHIER' WHERE UPPER(Role) = 'VIEWER'");
         }
     }
 
@@ -224,7 +273,7 @@ public class DatabaseInitializer {
                    + "  PaymentID     INT IDENTITY(1,1) PRIMARY KEY,"
                    + "  BillID        INT NOT NULL,"
                    + "  Amount        DECIMAL(18,2) NOT NULL,"
-                   + "  PaymentMethod VARCHAR(50),"
+                   + "  PaymentMethod NVARCHAR(50),"
                    + "  PaymentDate   DATETIME DEFAULT GETDATE(),"
                    + "  Note          NVARCHAR(255),"
                    + "  FOREIGN KEY (BillID) REFERENCES BILL(BillID)"
@@ -232,6 +281,99 @@ public class DatabaseInitializer {
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(sql);
             System.out.println("PAYMENT table created successfully.");
+        }
+    }
+
+    private static void migratePaymentMethodColumn(Connection conn) {
+        try (Statement stmt = conn.createStatement()) {
+            System.out.println("Ensuring PAYMENT.PaymentMethod is NVARCHAR(50) for Unicode support...");
+            try {
+                stmt.executeUpdate("ALTER TABLE PAYMENT ALTER COLUMN PaymentMethod NVARCHAR(50)");
+            } catch (SQLException ex) {
+                System.out.println("[INFO] ALTER COLUMN result/status: " + ex.getMessage());
+            }
+
+            // Robust Java-based Unicode migration
+            List<Integer> idsToCash = new ArrayList<>();
+            List<Integer> idsToBank = new ArrayList<>();
+            List<Integer> idsToWallet = new ArrayList<>();
+
+            try (ResultSet rs = stmt.executeQuery("SELECT PaymentID, PaymentMethod FROM PAYMENT")) {
+                while (rs.next()) {
+                    int id = rs.getInt("PaymentID");
+                    String method = rs.getString("PaymentMethod");
+                    if (method != null) {
+                        String lower = method.toLowerCase();
+                        if (lower.contains("chuy") || lower.contains("kho") || lower.contains("bank") || lower.contains("transfer")) {
+                            idsToBank.add(id);
+                        } else if (lower.contains("v") || lower.contains("đ") || lower.contains("di") || lower.contains("wallet") || lower.contains("t?")) {
+                            idsToWallet.add(id);
+                        } else {
+                            idsToCash.add(id);
+                        }
+                    }
+                }
+            }
+
+            // Update cash payments in batch
+            if (!idsToCash.isEmpty()) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE PAYMENT SET PaymentMethod = N'Tiền mặt' WHERE PaymentID = ?")) {
+                    for (int id : idsToCash) {
+                        ps.setInt(1, id);
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+            }
+
+            // Update bank payments in batch
+            if (!idsToBank.isEmpty()) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE PAYMENT SET PaymentMethod = N'Chuyển khoản' WHERE PaymentID = ?")) {
+                    for (int id : idsToBank) {
+                        ps.setInt(1, id);
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+            }
+
+            // Update wallet payments in batch
+            if (!idsToWallet.isEmpty()) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE PAYMENT SET PaymentMethod = N'Ví điện tử' WHERE PaymentID = ?")) {
+                    for (int id : idsToWallet) {
+                        ps.setInt(1, id);
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+            }
+            
+            System.out.println("PAYMENT table payment methods successfully migrated and Unicode verified.");
+        } catch (SQLException e) {
+            System.err.println("[ERROR] migratePaymentMethodColumn failed: " + e.getMessage());
+        }
+    }
+
+    private static void createNotificationTable(Connection conn) throws SQLException {
+        String sql = "CREATE TABLE NOTIFICATION ("
+                   + "  NotificationID INT IDENTITY(1,1) PRIMARY KEY,"
+                   + "  Title          NVARCHAR(150) NOT NULL,"
+                   + "  Content        NVARCHAR(500) NOT NULL,"
+                   + "  Type           VARCHAR(20) NOT NULL,"
+                   + "  Icon           VARCHAR(50),"
+                   + "  IsRead         BIT DEFAULT 0,"
+                   + "  CreatedAt      DATETIME DEFAULT GETDATE(),"
+                   + "  CreatedBy      VARCHAR(50),"
+                   + "  TargetUser     VARCHAR(50),"
+                   + "  RelatedEntity  VARCHAR(50),"
+                   + "  RelatedID      INT"
+                   + ")";
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate(sql);
+            System.out.println("NOTIFICATION table created successfully.");
         }
     }
 

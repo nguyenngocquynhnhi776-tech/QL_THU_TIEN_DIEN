@@ -75,11 +75,14 @@ public class User {
     public String getRoleDisplay() {
         if (role == null) return "Không xác định";
         switch (role.toUpperCase()) {
-            case "ADMIN":   return "Quản trị viên";
-            case "MANAGER": return "Quản lý";
-            case "STAFF":   return "Nhân viên";
-            case "VIEWER":  return "Xem báo cáo";
-            default:        return role;
+            case "ADMIN":            return "Quản trị viên";
+            case "CUSTOMER_MANAGER":
+            case "MANAGER":          return "Nhân viên quản lý khách hàng";
+            case "METER_STAFF":
+            case "STAFF":            return "Nhân viên ghi chỉ số điện";
+            case "CASHIER":
+            case "VIEWER":           return "Nhân viên thu tiền";
+            default:                 return role;
         }
     }
 

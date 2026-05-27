@@ -221,6 +221,11 @@ public class LoginFrame extends JFrame {
             
             boolean success = authService.login(user, pass);
             if (success) {
+                new service.impl.NotificationServiceImpl().addNotification(
+                    "Đăng nhập hệ thống",
+                    "Nhân viên " + user + " đăng nhập vào hệ thống.",
+                    "info", "info"
+                );
                 MainForm main = new MainForm();
                 main.setVisible(true);
                 dispose();

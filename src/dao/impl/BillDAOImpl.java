@@ -65,8 +65,8 @@ public class BillDAOImpl implements BillDAO {
 
         if (keyword != null && !keyword.trim().isEmpty()) {
             String pat = "%" + keyword.trim() + "%";
-            sql.append(" AND (b.BillCode LIKE ? OR h.HouseholdCode LIKE ? OR h.OwnerName LIKE ?)");
-            params.add(pat); params.add(pat); params.add(pat);
+            sql.append(" AND (b.BillCode LIKE ? OR h.HouseholdCode LIKE ? OR h.OwnerName LIKE ? OR h.Phone LIKE ?)");
+            params.add(pat); params.add(pat); params.add(pat); params.add(pat);
         }
         if (paymentStatus != null && !paymentStatus.isEmpty()) {
             sql.append(" AND b.PaymentStatus = ?");
@@ -185,6 +185,37 @@ public class BillDAOImpl implements BillDAO {
             }
         } catch (SQLException e) {
             System.err.println("BillDAOImpl.existsForReading: " + e.getMessage());
+        }
+        return false;
+    }
+
+    @Override
+    public Bill findByReading(int readingId) {
+        String sql = buildSelectSQL() + " WHERE b.ReadingID = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, readingId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return map(rs);
+            }
+        } catch (SQLException e) {
+            System.err.println("BillDAOImpl.findByReading: " + e.getMessage());
+        }
+        return null;
+    }
+
+    @Override
+    public boolean updateAmount(int billId, double newTotal) {
+        String sql = "UPDATE BILL SET TotalAmount = ? WHERE BillID = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, newTotal);
+            ps.setInt(2, billId);
+            boolean ok = ps.executeUpdate() > 0;
+            if (ok) System.out.println("[INFO] Bill updated. BillID=" + billId + " NewTotal=" + newTotal);
+            return ok;
+        } catch (SQLException e) {
+            System.err.println("BillDAOImpl.updateAmount: " + e.getMessage());
         }
         return false;
     }

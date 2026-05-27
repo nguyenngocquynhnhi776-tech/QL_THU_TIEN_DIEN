@@ -63,9 +63,8 @@ public class BillingPanel extends BasePanel {
             @Override public void changedUpdate(DocumentEvent e) { reloadTable(); }
         });
 
-        // Config prices button (Admin / Manager only)
-        String role = UserSession.getInstance().getRole();
-        boolean canConfig = "ADMIN".equalsIgnoreCase(role) || "MANAGER".equalsIgnoreCase(role);
+        // Config prices button (Admin / Manager only via SYSTEM_MANAGE)
+        boolean canConfig = util.PermissionManager.getInstance().hasPermission(model.Permission.SYSTEM_MANAGE);
 
         configPricesBtn = new RoundedButton("⚙  Cấu hình đơn giá", UIConstants.BUTTON_RADIUS, new Color(100, 110, 120));
         configPricesBtn.setPreferredSize(new Dimension(160, 36));
@@ -74,6 +73,7 @@ public class BillingPanel extends BasePanel {
 
         RoundedButton calcAll = new RoundedButton("Tính tiền toàn bộ", UIConstants.BUTTON_RADIUS, UIConstants.PRIMARY);
         calcAll.setPreferredSize(new Dimension(170, 36));
+        calcAll.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.BILLING_BATCH));
         calcAll.addActionListener(e -> calculateAllBills());
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -118,6 +118,7 @@ public class BillingPanel extends BasePanel {
             if (!hasBill) {
                 JButton calcBtn = actionBtn("Tính tiền", UIConstants.PRIMARY);
                 calcBtn.addActionListener(e -> generateBill(r));
+                calcBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.BILLING_CALCULATE));
                 p.add(calcBtn);
             } else {
                 JButton detailBtn = actionBtn("Chi tiết", UIConstants.SUCCESS);
@@ -196,7 +197,7 @@ public class BillingPanel extends BasePanel {
         tiersContainer.repaint();
     }
 
-    private void reloadTable() {
+    public void reloadTable() {
         if (table == null) return;
         String keyword = searchField.getText().trim();
         currentReadings = readingService.search(keyword.isEmpty() ? null : keyword, null, null);
@@ -240,6 +241,10 @@ public class BillingPanel extends BasePanel {
     // ====================================================================
 
     private void generateBill(MeterReading r) {
+        if (!util.PermissionManager.getInstance().checkPermission(model.Permission.BILLING_CALCULATE)) {
+            return;
+        }
+
         String err = billService.generateBill(r.getReadingId());
         if (err != null) {
             ThemeManager.showInfoDialog(SwingUtilities.getWindowAncestor(this), err, "Lỗi");
@@ -252,6 +257,10 @@ public class BillingPanel extends BasePanel {
     }
 
     private void calculateAllBills() {
+        if (!util.PermissionManager.getInstance().checkPermission(model.Permission.BILLING_BATCH)) {
+            return;
+        }
+
         int count = 0;
         int errCount = 0;
         for (MeterReading r : currentReadings) {
@@ -378,6 +387,10 @@ public class BillingPanel extends BasePanel {
     }
 
     private void showPriceConfigDialog() {
+        if (!util.PermissionManager.getInstance().checkPermission(model.Permission.SYSTEM_MANAGE)) {
+            return;
+        }
+
         JDialog dlg = new JDialog(SwingUtilities.getWindowAncestor(this), "Cấu hình đơn giá điện bậc thang", Dialog.ModalityType.APPLICATION_MODAL);
         dlg.setSize(450, 420);
         dlg.setLocationRelativeTo(this);

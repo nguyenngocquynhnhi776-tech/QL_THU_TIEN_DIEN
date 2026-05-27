@@ -5,6 +5,7 @@ import javax.swing.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.Rectangle;
 
 /**
  * Modern enterprise table with alternating rows, sticky header, hover highlight,
@@ -15,6 +16,8 @@ public class ModernTable extends JPanel {
     private final JTable table;
     private final DefaultTableModel model;
     private int hoveredRow = -1;
+    private int highlightedRow = -1;
+    private final Color highlightColor = new Color(0xD4EDDA); // soft green
     private boolean[] editableColumns;
 
     public ModernTable(String[] columns) {
@@ -34,9 +37,14 @@ public class ModernTable extends JPanel {
         setLayout(new BorderLayout());
 
         JScrollPane scroll = new JScrollPane(table);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
+        // Add padding so the square viewport does not clip the parent's rounded corners (radius 14)
+        scroll.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        scroll.setBackground(Color.WHITE);
+        scroll.setOpaque(true);
+        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.getViewport().setOpaque(true);
+        // Enable backing store for smooth hardware-accelerated scrolling
+        scroll.getViewport().setScrollMode(JViewport.BACKINGSTORE_SCROLL_MODE);
         scroll.getVerticalScrollBar().setOpaque(false);
         scroll.getHorizontalScrollBar().setOpaque(false);
 
@@ -50,6 +58,9 @@ public class ModernTable extends JPanel {
                 Component c = super.prepareRenderer(renderer, row, col);
                 if (isRowSelected(row)) {
                     c.setBackground(UIConstants.TABLE_SELECTION);
+                    c.setForeground(UIConstants.COLOR_TEXT_PRIMARY);
+                } else if (row == highlightedRow) {
+                    c.setBackground(highlightColor);
                     c.setForeground(UIConstants.COLOR_TEXT_PRIMARY);
                 } else if (row == hoveredRow) {
                     c.setBackground(UIConstants.TABLE_ROW_HOVER);
@@ -74,6 +85,7 @@ public class ModernTable extends JPanel {
         t.setFocusable(false);
         t.setIntercellSpacing(new Dimension(0, 1));
         t.setFillsViewportHeight(true);
+        t.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
         // Header
         JTableHeader header = t.getTableHeader();
@@ -102,14 +114,31 @@ public class ModernTable extends JPanel {
         t.addMouseMotionListener(new MouseMotionAdapter() {
             @Override public void mouseMoved(MouseEvent e) {
                 int row = t.rowAtPoint(e.getPoint());
-                if (row != hoveredRow) { hoveredRow = row; t.repaint(); }
+                if (row != hoveredRow) {
+                    int oldHovered = hoveredRow;
+                    hoveredRow = row;
+                    if (oldHovered != -1 && oldHovered < t.getRowCount()) {
+                        t.repaint(t.getCellRect(oldHovered, 0, true));
+                    }
+                    if (hoveredRow != -1 && hoveredRow < t.getRowCount()) {
+                        t.repaint(t.getCellRect(hoveredRow, 0, true));
+                    }
+                }
             }
         });
         t.addMouseListener(new MouseAdapter() {
             @Override public void mouseExited(MouseEvent e) {
-                hoveredRow = -1; t.repaint();
+                int oldHovered = hoveredRow;
+                hoveredRow = -1;
+                if (oldHovered != -1 && oldHovered < t.getRowCount()) {
+                    t.repaint(t.getCellRect(oldHovered, 0, true));
+                }
             }
         });
+
+        // Set backgrounds white & opaque for hardware scroll acceleration
+        t.setBackground(Color.WHITE);
+        t.setOpaque(true);
 
         return t;
     }
@@ -153,6 +182,32 @@ public class ModernTable extends JPanel {
 
     /** Get selected row index (-1 if none). */
     public int getSelectedRow() { return table.getSelectedRow(); }
+
+    /**
+     * Briefly highlights a view-row in soft green for 1600ms then resets.
+     * Call with the VIEW row index (after sorting).
+     */
+    public void flashRow(int viewRow) {
+        if (viewRow < 0 || viewRow >= table.getRowCount()) return;
+        highlightedRow = viewRow;
+        table.repaint();
+        // Scroll viewport to show the row
+        Rectangle rect = table.getCellRect(viewRow, 0, true);
+        table.scrollRectToVisible(rect);
+        // Auto-reset highlight after 1600ms
+        Timer t = new Timer(1600, e -> {
+            highlightedRow = -1;
+            table.repaint();
+        });
+        t.setRepeats(false);
+        t.start();
+    }
+
+    /** Scrolls the table viewport so the given view-row is visible. */
+    public void scrollToRow(int viewRow) {
+        if (viewRow < 0 || viewRow >= table.getRowCount()) return;
+        table.scrollRectToVisible(table.getCellRect(viewRow, 0, true));
+    }
 
     @Override
     protected void paintComponent(Graphics g) {

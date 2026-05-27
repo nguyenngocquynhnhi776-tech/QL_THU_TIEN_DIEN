@@ -35,8 +35,7 @@ public class UserManagementPanel extends BasePanel {
         addBtn.setPreferredSize(new Dimension(180, 36));
         addBtn.addActionListener(e -> showUserDialog(false, -1));
 
-        String currentUserRole = UserSession.getInstance().getRole();
-        PermissionUtil.applyPermissions(currentUserRole, addBtn, null, null);
+        addBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.USER_CREATE));
 
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         right.setOpaque(false); right.add(addBtn);
@@ -52,7 +51,7 @@ public class UserManagementPanel extends BasePanel {
         // Role badge
         table.setColumnRenderer(2, (tbl, val, sel, foc, row, col) -> {
             String s = val == null ? "" : val.toString();
-            StatusBadge.Status st = s.contains("Quản trị") || s.contains("ADMIN") || s.contains("Quản lý") || s.contains("MANAGER")
+            StatusBadge.Status st = s.contains("Quản trị") || s.contains("ADMIN") || s.contains("quản lý") || s.contains("CUSTOMER_MANAGER")
                 ? StatusBadge.Status.ADMIN : StatusBadge.Status.STAFF;
             return new StatusBadge(s, st);
         });
@@ -113,12 +112,24 @@ public class UserManagementPanel extends BasePanel {
         User user = userDAO.findByUsername(username);
         if (user != null) {
             String currentStatus = user.getStatus();
-            String newStatus = "ACTIVE".equalsIgnoreCase(currentStatus) ? "LOCKED" : "ACTIVE";
+            boolean isLocked = "LOCKED".equalsIgnoreCase(currentStatus);
+            model.Permission perm = isLocked ? model.Permission.USER_UNLOCK : model.Permission.USER_LOCK;
+            if (!util.PermissionManager.getInstance().checkPermission(perm)) {
+                return;
+            }
+
+            String newStatus = isLocked ? "ACTIVE" : "LOCKED";
             user.setStatus(newStatus);
             boolean updated = userDAO.update(user);
             if (updated) {
                 loadFromDatabase();
                 String msg = "ACTIVE".equals(newStatus) ? "Mở khóa tài khoản thành công!" : "Khóa tài khoản thành công!";
+                new service.impl.NotificationServiceImpl().addNotification(
+                    "Cập nhật tài khoản",
+                    ("ACTIVE".equals(newStatus) ? "Mở khóa" : "Khóa") + " tài khoản nhân viên '" + username + "'.",
+                    "ACTIVE".equals(newStatus) ? "info" : "error",
+                    "ACTIVE".equals(newStatus) ? "info" : "x-circle"
+                );
                 ToastNotification.show(SwingUtilities.getWindowAncestor(this), msg, ToastNotification.Type.SUCCESS);
             } else {
                 ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thay đổi trạng thái!", ToastNotification.Type.ERROR);
@@ -127,6 +138,10 @@ public class UserManagementPanel extends BasePanel {
     }
 
     private void deleteUser(int row) {
+        if (!util.PermissionManager.getInstance().checkPermission(model.Permission.USER_DELETE)) {
+            return;
+        }
+
         String username = (String) table.getValueAt(row, 1);
         boolean ok = ThemeManager.showConfirmDialog(
             SwingUtilities.getWindowAncestor(this),
@@ -156,6 +171,11 @@ public class UserManagementPanel extends BasePanel {
     }
 
     private void showUserDialog(boolean isEdit, int row) {
+        model.Permission perm = isEdit ? model.Permission.USER_UPDATE : model.Permission.USER_CREATE;
+        if (!util.PermissionManager.getInstance().checkPermission(perm)) {
+            return;
+        }
+
         String title = isEdit ? "Sửa người dùng" : "Thêm người dùng";
         JDialog dlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), title, true);
         dlg.setSize(440, 340);
@@ -174,9 +194,9 @@ public class UserManagementPanel extends BasePanel {
         RoundedPasswordField confirmField = new RoundedPasswordField();
         JComboBox<String> roleBox = new JComboBox<>(new String[]{
             "Quản trị viên (ADMIN)",
-            "Quản lý (MANAGER)",
-            "Nhân viên (STAFF)",
-            "Xem báo cáo (VIEWER)"
+            "Nhân viên quản lý khách hàng (CUSTOMER_MANAGER)",
+            "Nhân viên ghi chỉ số điện (METER_STAFF)",
+            "Nhân viên thu tiền (CASHIER)"
         });
         roleBox.setFont(UIConstants.FONT_NORMAL);
 
@@ -189,12 +209,12 @@ public class UserManagementPanel extends BasePanel {
             if (roleVal != null) {
                 if (roleVal.contains("Quản trị") || roleVal.contains("ADMIN")) {
                     roleBox.setSelectedIndex(0);
-                } else if (roleVal.contains("Quản lý") || roleVal.contains("MANAGER")) {
+                } else if (roleVal.contains("khách hàng") || roleVal.contains("CUSTOMER_MANAGER") || roleVal.contains("MANAGER")) {
                     roleBox.setSelectedIndex(1);
-                } else if (roleVal.contains("Xem") || roleVal.contains("VIEWER")) {
-                    roleBox.setSelectedIndex(3);
-                } else {
+                } else if (roleVal.contains("chỉ số") || roleVal.contains("METER_STAFF") || roleVal.contains("STAFF")) {
                     roleBox.setSelectedIndex(2);
+                } else if (roleVal.contains("thu tiền") || roleVal.contains("CASHIER") || roleVal.contains("VIEWER")) {
+                    roleBox.setSelectedIndex(3);
                 }
             }
         }
@@ -254,10 +274,11 @@ public class UserManagementPanel extends BasePanel {
                 return;
             }
 
-            String dbRole = "STAFF";
+            String dbRole = "CASHIER";
             if (role.contains("ADMIN")) dbRole = "ADMIN";
-            else if (role.contains("MANAGER")) dbRole = "MANAGER";
-            else if (role.contains("VIEWER")) dbRole = "VIEWER";
+            else if (role.contains("CUSTOMER_MANAGER")) dbRole = "CUSTOMER_MANAGER";
+            else if (role.contains("METER_STAFF")) dbRole = "METER_STAFF";
+            else if (role.contains("CASHIER")) dbRole = "CASHIER";
 
             if (isEdit) {
                 User existing = userDAO.findByUsername(username);
@@ -321,15 +342,20 @@ public class UserManagementPanel extends BasePanel {
             JButton lock = actionBtn("Bị khóa".equals(status) ? "Mở" : "Khóa", UIConstants.WARNING);
             JButton del = actionBtn("Xóa", UIConstants.ERROR);
 
-            String currentUserRole = UserSession.getInstance().getRole();
-            edit.setEnabled(PermissionUtil.canEdit(currentUserRole));
-            lock.setEnabled(PermissionUtil.canEdit(currentUserRole));
-            del.setEnabled(PermissionUtil.canDelete(currentUserRole));
+            edit.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.USER_UPDATE));
+            boolean isLocked = "Bị khóa".equals(status);
+            lock.setVisible(util.PermissionManager.getInstance().hasPermission(isLocked ? model.Permission.USER_UNLOCK : model.Permission.USER_LOCK));
+            del.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.USER_DELETE));
 
             p.add(edit);
             p.add(lock);
             p.add(del);
 
+            if (tbl.isRowSelected(row)) {
+                p.setBackground(UIConstants.TABLE_SELECTION);
+            } else {
+                p.setBackground(row % 2 == 0 ? UIConstants.TABLE_ROW_EVEN : UIConstants.TABLE_ROW_ODD);
+            }
             return p;
         }
     }
@@ -345,11 +371,6 @@ public class UserManagementPanel extends BasePanel {
             JButton edit = actionBtn("Sửa", UIConstants.PRIMARY);
             JButton lock = actionBtn("Khóa", UIConstants.WARNING);
             JButton del = actionBtn("Xóa", UIConstants.ERROR);
-
-            String currentUserRole = UserSession.getInstance().getRole();
-            edit.setEnabled(PermissionUtil.canEdit(currentUserRole));
-            lock.setEnabled(PermissionUtil.canEdit(currentUserRole));
-            del.setEnabled(PermissionUtil.canDelete(currentUserRole));
 
             edit.addActionListener(e -> {
                 fireEditingStopped();
@@ -375,9 +396,16 @@ public class UserManagementPanel extends BasePanel {
         public Component getTableCellEditorComponent(JTable tbl, Object val,
                 boolean isSelected, int row, int col) {
             currentRow = row;
+            JButton editBtn = (JButton) panel.getComponent(0);
             JButton lockBtn = (JButton) panel.getComponent(1);
+            JButton delBtn = (JButton) panel.getComponent(2);
             String status = (String) tbl.getValueAt(row, 3);
-            lockBtn.setText("Bị khóa".equals(status) ? "Mở" : "Khóa");
+            boolean isLocked = "Bị khóa".equals(status);
+            lockBtn.setText(isLocked ? "Mở" : "Khóa");
+
+            editBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.USER_UPDATE));
+            lockBtn.setVisible(util.PermissionManager.getInstance().hasPermission(isLocked ? model.Permission.USER_UNLOCK : model.Permission.USER_LOCK));
+            delBtn.setVisible(util.PermissionManager.getInstance().hasPermission(model.Permission.USER_DELETE));
 
             if (tbl.isRowSelected(row)) {
                 panel.setBackground(UIConstants.TABLE_SELECTION);

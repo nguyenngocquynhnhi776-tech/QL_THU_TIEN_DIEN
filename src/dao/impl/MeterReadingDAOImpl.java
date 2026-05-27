@@ -102,6 +102,53 @@ public class MeterReadingDAOImpl implements MeterReadingDAO {
     }
 
     @Override
+    public int insertAndGetId(MeterReading r) {
+        String sql = "INSERT INTO METER_READING (HouseholdID, Month, Year, OldIndex, NewIndex, Consumption) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, r.getHouseholdId());
+            ps.setInt(2, r.getMonth());
+            ps.setInt(3, r.getYear());
+            ps.setDouble(4, r.getOldIndex());
+            ps.setDouble(5, r.getNewIndex());
+            ps.setDouble(6, r.getConsumption());
+            int affected = ps.executeUpdate();
+            if (affected > 0) {
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        int newId = keys.getInt(1);
+                        System.out.println("[INFO] Meter reading saved. ReadingID=" + newId);
+                        return newId;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("MeterReadingDAOImpl.insertAndGetId: " + e.getMessage());
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean update(MeterReading r) {
+        String sql = "UPDATE METER_READING SET OldIndex=?, NewIndex=?, Consumption=? " +
+                     "WHERE ReadingID=?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, r.getOldIndex());
+            ps.setDouble(2, r.getNewIndex());
+            ps.setDouble(3, r.getConsumption());
+            ps.setInt(4, r.getReadingId());
+            boolean ok = ps.executeUpdate() > 0;
+            if (ok) System.out.println("[INFO] Meter reading updated. ReadingID=" + r.getReadingId());
+            return ok;
+        } catch (SQLException e) {
+            System.err.println("MeterReadingDAOImpl.update: " + e.getMessage());
+        }
+        return false;
+    }
+
+    @Override
     public MeterReading findByHouseholdAndPeriod(int householdId, int month, int year) {
         String sql = "SELECT mr.*, h.HouseholdCode, h.OwnerName, a.AreaName " +
                      "FROM METER_READING mr " +
