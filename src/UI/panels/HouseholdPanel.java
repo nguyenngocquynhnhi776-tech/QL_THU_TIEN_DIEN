@@ -1,3 +1,5 @@
+// GIAO DIỆN QUÁN LÝ HỘ
+
 package UI.panels;
 
 import UI.components.*;
@@ -468,13 +470,20 @@ public class HouseholdPanel extends BasePanel {
         gc.gridx = 0; gc.gridy = 3; gc.weightx = 0;
         form.add(labelFor("Số điện thoại:"), gc);
         gc.gridx = 1; gc.weightx = 1;
-        form.add(phoneField, gc);
-
         if (isEdit) {
+            // Khi sửa: SĐT span 1 cột, nhường cột 2-3 cho Trạng thái
+            gc.gridwidth = 1;
+            form.add(phoneField, gc);
+            gc.gridwidth = 1;
             gc.gridx = 2; gc.weightx = 0;
             form.add(labelFor("Trạng thái:"), gc);
             gc.gridx = 3; gc.weightx = 1;
             form.add(statusBox, gc);
+        } else {
+            // Khi thêm mới: SĐT span 3 cột để rộng bằng các trường khác
+            gc.gridwidth = 3;
+            form.add(phoneField, gc);
+            gc.gridwidth = 1;
         }
 
         // Buttons

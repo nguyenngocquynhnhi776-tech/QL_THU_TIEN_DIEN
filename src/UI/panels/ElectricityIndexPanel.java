@@ -1,3 +1,5 @@
+// NHẬP CHỈ SỐ ĐIỆN
+
 package UI.panels;
 
 import UI.components.*;

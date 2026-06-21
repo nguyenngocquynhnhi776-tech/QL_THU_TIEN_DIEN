@@ -1,7 +1,10 @@
+// XỬ LÝ XÁC THỰC
+
 package service;
 
 /**
- * Service interface for handling authentication, login, logout, and credential validation.
+ * Service interface for handling authentication, login, logout, and credential
+ * validation.
  */
 public interface AuthenticationService {
 
@@ -23,7 +26,7 @@ public interface AuthenticationService {
     /**
      * Changes the password of a user.
      *
-     * @param username the username of the user
+     * @param username    the username of the user
      * @param oldPassword the current plaintext password
      * @param newPassword the new plaintext password
      * @return true if password change succeeded, false otherwise
@@ -31,7 +34,8 @@ public interface AuthenticationService {
     boolean changePassword(String username, String oldPassword, String newPassword);
 
     /**
-     * Validates if the username and password are not empty and are valid format/length.
+     * Validates if the username and password are not empty and are valid
+     * format/length.
      *
      * @param username the username
      * @param password the password

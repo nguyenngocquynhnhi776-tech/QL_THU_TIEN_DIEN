@@ -1,3 +1,5 @@
+// GIAO DIỆN ĐĂNG NHẬP
+
 package UI;
 
 import UI.components.*;
@@ -13,7 +15,8 @@ import database.DatabaseInitializer;
 
 /**
  * Electra Manager AI — Màn hình đăng nhập.
- * Thiết kế 2 cột: cột trái branding gradient, cột phải glassmorphism login card.
+ * Thiết kế 2 cột: cột trái branding gradient, cột phải glassmorphism login
+ * card.
  */
 public class LoginFrame extends JFrame {
 
@@ -28,7 +31,8 @@ public class LoginFrame extends JFrame {
 
         // Root panel with gradient background
         JPanel root = new JPanel(new GridLayout(1, 2)) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 ThemeManager.paintGradientBackground(g2, getWidth(), getHeight());
                 g2.dispose();
@@ -40,14 +44,15 @@ public class LoginFrame extends JFrame {
         // LEFT PANEL — Branding
         // ============================================================
         JPanel leftPanel = new JPanel(new GridBagLayout()) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
                 // Dark gradient
                 GradientPaint gp = new GradientPaint(
-                    0, 0, UIConstants.COLOR_SIDEBAR_BG,
-                    getWidth(), getHeight(), UIConstants.COLOR_SIDEBAR_BG_DARK);
+                        0, 0, UIConstants.COLOR_SIDEBAR_BG,
+                        getWidth(), getHeight(), UIConstants.COLOR_SIDEBAR_BG_DARK);
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
 
@@ -69,7 +74,8 @@ public class LoginFrame extends JFrame {
 
         // Lightning icon
         JLabel boltIcon = new JLabel("\u26A1") {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 // Circle behind icon
@@ -102,7 +108,8 @@ public class LoginFrame extends JFrame {
         sep.setAlignmentX(CENTER_ALIGNMENT);
 
         // Features list
-        String[] features = {"Phát hiện bất thường tự động (AI)", "Dự báo doanh thu thông minh", "Quản lý hóa đơn & thanh toán", "Báo cáo thống kê chi tiết"};
+        String[] features = { "Phát hiện bất thường tự động (AI)", "Dự báo doanh thu thông minh",
+                "Quản lý hóa đơn & thanh toán", "Báo cáo thống kê chi tiết" };
         JPanel featureList = new JPanel();
         featureList.setOpaque(false);
         featureList.setLayout(new BoxLayout(featureList, BoxLayout.Y_AXIS));
@@ -136,7 +143,8 @@ public class LoginFrame extends JFrame {
 
         // Login card (glassmorphism)
         JPanel loginCard = new JPanel(new GridBagLayout()) {
-            @Override protected void paintComponent(Graphics g) {
+            @Override
+            protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 ThemeManager.drawCardShadow(g2, 6, 8, getWidth() - 14, getHeight() - 16, 24);
@@ -153,38 +161,46 @@ public class LoginFrame extends JFrame {
         gc.insets = new Insets(8, 28, 8, 28);
 
         // Title
-        gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 2; gc.insets = new Insets(32, 28, 4, 28);
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.gridwidth = 2;
+        gc.insets = new Insets(32, 28, 4, 28);
         JLabel loginTitle = new JLabel("Chào mừng trở lại");
         loginTitle.setFont(UIConstants.FONT_TITLE);
         loginTitle.setForeground(UIConstants.COLOR_TEXT_PRIMARY);
         loginCard.add(loginTitle, gc);
 
-        gc.gridy = 1; gc.insets = new Insets(0, 28, 24, 28);
+        gc.gridy = 1;
+        gc.insets = new Insets(0, 28, 24, 28);
         JLabel loginSub = new JLabel("Vui lòng đăng nhập để tiếp tục");
         loginSub.setFont(UIConstants.FONT_SMALL);
         loginSub.setForeground(UIConstants.COLOR_TEXT_MUTED);
         loginCard.add(loginSub, gc);
 
         // Username
-        gc.gridy = 2; gc.insets = new Insets(4, 28, 2, 28);
+        gc.gridy = 2;
+        gc.insets = new Insets(4, 28, 2, 28);
         JLabel userLbl = new JLabel("Tên đăng nhập");
         userLbl.setFont(UIConstants.FONT_NORMAL_BOLD);
         userLbl.setForeground(UIConstants.COLOR_TEXT_SECONDARY);
         loginCard.add(userLbl, gc);
 
-        gc.gridy = 3; gc.insets = new Insets(0, 28, 12, 28);
+        gc.gridy = 3;
+        gc.insets = new Insets(0, 28, 12, 28);
         RoundedTextField userField = new RoundedTextField();
         userField.setPreferredSize(new Dimension(360, 42));
         loginCard.add(userField, gc);
 
         // Password
-        gc.gridy = 4; gc.insets = new Insets(4, 28, 2, 28);
+        gc.gridy = 4;
+        gc.insets = new Insets(4, 28, 2, 28);
         JLabel passLbl = new JLabel("Mật khẩu");
         passLbl.setFont(UIConstants.FONT_NORMAL_BOLD);
         passLbl.setForeground(UIConstants.COLOR_TEXT_SECONDARY);
         loginCard.add(passLbl, gc);
 
-        gc.gridy = 5; gc.insets = new Insets(0, 28, 12, 28);
+        gc.gridy = 5;
+        gc.insets = new Insets(0, 28, 12, 28);
         RoundedPasswordField passField = new RoundedPasswordField();
         passField.setPreferredSize(new Dimension(360, 42));
         loginCard.add(passField, gc);
@@ -192,14 +208,16 @@ public class LoginFrame extends JFrame {
         AuthenticationService authService = new AuthenticationServiceImpl();
 
         // Login button
-        gc.gridy = 6; gc.insets = new Insets(12, 28, 10, 28);
+        gc.gridy = 6;
+        gc.insets = new Insets(12, 28, 10, 28);
         RoundedButton loginBtn = new RoundedButton("ĐĂNG NHẬP", UIConstants.BUTTON_RADIUS, UIConstants.PRIMARY);
         loginBtn.setPreferredSize(new Dimension(360, 46));
         loginBtn.setFont(UIConstants.FONT_NORMAL_BOLD);
         loginCard.add(loginBtn, gc);
 
         // Error label
-        gc.gridy = 7; gc.insets = new Insets(0, 28, 20, 28);
+        gc.gridy = 7;
+        gc.insets = new Insets(0, 28, 20, 28);
         JLabel errLabel = new JLabel(" ");
         errLabel.setFont(UIConstants.FONT_SMALL);
         errLabel.setForeground(UIConstants.ERROR);
@@ -218,14 +236,13 @@ public class LoginFrame extends JFrame {
                 errLabel.setText("Mật khẩu không được để trống!");
                 return;
             }
-            
+
             boolean success = authService.login(user, pass);
             if (success) {
                 new service.impl.NotificationServiceImpl().addNotification(
-                    "Đăng nhập hệ thống",
-                    "Nhân viên " + user + " đăng nhập vào hệ thống.",
-                    "info", "info"
-                );
+                        "Đăng nhập hệ thống",
+                        "Nhân viên " + user + " đăng nhập vào hệ thống.",
+                        "info", "info");
                 MainForm main = new MainForm();
                 main.setVisible(true);
                 dispose();
@@ -235,7 +252,7 @@ public class LoginFrame extends JFrame {
         };
 
         loginBtn.addActionListener(doLogin);
-        passField.addActionListener(doLogin);  // Enter key on password
+        passField.addActionListener(doLogin); // Enter key on password
 
         rightPanel.add(loginCard);
 

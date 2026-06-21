@@ -87,19 +87,23 @@ public class UserManagementPanel extends BasePanel {
     }
 
     private void loadFromDatabase() {
-        table.getModel().setRowCount(0);
-        java.util.List<User> list = userDAO.getAll();
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm");
-        for (User u : list) {
-            String dateStr = u.getCreatedAt() != null ? sdf.format(u.getCreatedAt()) : "Chưa rõ";
-            table.addRow(new Object[]{
-                u.getFullName(),
-                u.getUsername(),
-                u.getRoleDisplay(),
-                u.getStatusDisplay(),
-                dateStr,
-                ""
-            });
+        try {
+            table.getModel().setRowCount(0);
+            java.util.List<User> list = userDAO.getAll();
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm");
+            for (User u : list) {
+                String dateStr = u.getCreatedAt() != null ? sdf.format(u.getCreatedAt()) : "Chưa rõ";
+                table.addRow(new Object[]{
+                    u.getFullName(),
+                    u.getUsername(),
+                    u.getRoleDisplay(),
+                    u.getStatusDisplay(),
+                    dateStr,
+                    ""
+                });
+            }
+        } catch (Exception ex) {
+            ThemeManager.showInfoDialog(this, "Lỗi tải dữ liệu người dùng từ CSDL: " + ex.getMessage(), "Lỗi hệ thống");
         }
     }
 
@@ -109,31 +113,40 @@ public class UserManagementPanel extends BasePanel {
 
     private void toggleLockUser(int row) {
         String username = (String) table.getValueAt(row, 1);
-        User user = userDAO.findByUsername(username);
-        if (user != null) {
-            String currentStatus = user.getStatus();
-            boolean isLocked = "LOCKED".equalsIgnoreCase(currentStatus);
-            model.Permission perm = isLocked ? model.Permission.USER_UNLOCK : model.Permission.USER_LOCK;
-            if (!util.PermissionManager.getInstance().checkPermission(perm)) {
-                return;
-            }
+        if (username.equalsIgnoreCase(UserSession.getInstance().getUsername())) {
+            ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Bạn không thể tự khóa tài khoản của chính mình!", ToastNotification.Type.ERROR);
+            return;
+        }
 
-            String newStatus = isLocked ? "ACTIVE" : "LOCKED";
-            user.setStatus(newStatus);
-            boolean updated = userDAO.update(user);
-            if (updated) {
-                loadFromDatabase();
-                String msg = "ACTIVE".equals(newStatus) ? "Mở khóa tài khoản thành công!" : "Khóa tài khoản thành công!";
-                new service.impl.NotificationServiceImpl().addNotification(
-                    "Cập nhật tài khoản",
-                    ("ACTIVE".equals(newStatus) ? "Mở khóa" : "Khóa") + " tài khoản nhân viên '" + username + "'.",
-                    "ACTIVE".equals(newStatus) ? "info" : "error",
-                    "ACTIVE".equals(newStatus) ? "info" : "x-circle"
-                );
-                ToastNotification.show(SwingUtilities.getWindowAncestor(this), msg, ToastNotification.Type.SUCCESS);
-            } else {
-                ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thay đổi trạng thái!", ToastNotification.Type.ERROR);
+        try {
+            User user = userDAO.findByUsername(username);
+            if (user != null) {
+                String currentStatus = user.getStatus();
+                boolean isLocked = "LOCKED".equalsIgnoreCase(currentStatus);
+                model.Permission perm = isLocked ? model.Permission.USER_UNLOCK : model.Permission.USER_LOCK;
+                if (!util.PermissionManager.getInstance().checkPermission(perm)) {
+                    return;
+                }
+
+                String newStatus = isLocked ? "ACTIVE" : "LOCKED";
+                user.setStatus(newStatus);
+                boolean updated = userDAO.update(user);
+                if (updated) {
+                    loadFromDatabase();
+                    String msg = "ACTIVE".equals(newStatus) ? "Mở khóa tài khoản thành công!" : "Khóa tài khoản thành công!";
+                    new service.impl.NotificationServiceImpl().addNotification(
+                        "Cập nhật tài khoản",
+                        ("ACTIVE".equals(newStatus) ? "Mở khóa" : "Khóa") + " tài khoản nhân viên '" + username + "'.",
+                        "ACTIVE".equals(newStatus) ? "info" : "error",
+                        "ACTIVE".equals(newStatus) ? "info" : "x-circle"
+                    );
+                    ToastNotification.show(SwingUtilities.getWindowAncestor(this), msg, ToastNotification.Type.SUCCESS);
+                } else {
+                    ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thay đổi trạng thái!", ToastNotification.Type.ERROR);
+                }
             }
+        } catch (Exception ex) {
+            ThemeManager.showInfoDialog(this, "Lỗi khi thay đổi trạng thái tài khoản: " + ex.getMessage(), "Lỗi hệ thống");
         }
     }
 
@@ -143,29 +156,38 @@ public class UserManagementPanel extends BasePanel {
         }
 
         String username = (String) table.getValueAt(row, 1);
+        if (username.equalsIgnoreCase(UserSession.getInstance().getUsername())) {
+            ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Bạn không thể tự xóa tài khoản của chính mình!", ToastNotification.Type.ERROR);
+            return;
+        }
+
         boolean ok = ThemeManager.showConfirmDialog(
             SwingUtilities.getWindowAncestor(this),
-            "Bạn có chắc muốn xóa tài khoản '" + username + "'?",
+            "Bạn có chắc muốn xóa tài khoản '" + username + "'? Hành động này sẽ xóa vĩnh viễn dữ liệu trong CSDL.",
             "Xóa tài khoản"
         );
         if (ok) {
-            User user = userDAO.findByUsername(username);
-            if (user != null) {
-                boolean deleted = userDAO.softDelete(user.getUserId());
-                if (deleted) {
-                    loadFromDatabase();
-                    ToastNotification.show(
-                        SwingUtilities.getWindowAncestor(this),
-                        "Xóa tài khoản thành công!",
-                        ToastNotification.Type.SUCCESS
-                    );
-                } else {
-                    ToastNotification.show(
-                        SwingUtilities.getWindowAncestor(this),
-                        "Lỗi xóa tài khoản!",
-                        ToastNotification.Type.ERROR
-                    );
+            try {
+                User user = userDAO.findByUsername(username);
+                if (user != null) {
+                    boolean deleted = userDAO.delete(user.getUserId());
+                    if (deleted) {
+                        loadFromDatabase();
+                        ToastNotification.show(
+                            SwingUtilities.getWindowAncestor(this),
+                            "Xóa tài khoản thành công!",
+                            ToastNotification.Type.SUCCESS
+                        );
+                    } else {
+                        ToastNotification.show(
+                            SwingUtilities.getWindowAncestor(this),
+                            "Lỗi xóa tài khoản!",
+                            ToastNotification.Type.ERROR
+                        );
+                    }
                 }
+            } catch (Exception ex) {
+                ThemeManager.showInfoDialog(this, "Lỗi khi xóa tài khoản: " + ex.getMessage(), "Lỗi hệ thống");
             }
         }
     }
@@ -280,45 +302,49 @@ public class UserManagementPanel extends BasePanel {
             else if (role.contains("METER_STAFF")) dbRole = "METER_STAFF";
             else if (role.contains("CASHIER")) dbRole = "CASHIER";
 
-            if (isEdit) {
-                User existing = userDAO.findByUsername(username);
-                if (existing != null) {
-                    existing.setFullName(name);
-                    existing.setRole(dbRole);
-                    if (!pass.isEmpty()) {
-                        existing.setPasswordHash(PasswordUtil.hashPassword(pass));
+            try {
+                if (isEdit) {
+                    User existing = userDAO.findByUsername(username);
+                    if (existing != null) {
+                        existing.setFullName(name);
+                        existing.setRole(dbRole);
+                        if (!pass.isEmpty()) {
+                            existing.setPasswordHash(PasswordUtil.hashPassword(pass));
+                        }
+                        boolean updated = userDAO.update(existing);
+                        if (updated) {
+                            loadFromDatabase();
+                            ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Cập nhật tài khoản thành công!", ToastNotification.Type.SUCCESS);
+                        } else {
+                            ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi cập nhật tài khoản!", ToastNotification.Type.ERROR);
+                        }
                     }
-                    boolean updated = userDAO.update(existing);
-                    if (updated) {
-                        loadFromDatabase();
-                        ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Cập nhật tài khoản thành công!", ToastNotification.Type.SUCCESS);
-                    } else {
-                        ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi cập nhật tài khoản!", ToastNotification.Type.ERROR);
-                    }
-                }
-            } else {
-                User checkDup = userDAO.findByUsername(username);
-                if (checkDup != null) {
-                    ThemeManager.showConfirmDialog(dlg, "Tài khoản đã tồn tại!", "Thông báo");
-                    return;
-                }
-
-                User newUser = new User();
-                newUser.setUsername(username);
-                newUser.setPasswordHash(PasswordUtil.hashPassword(pass));
-                newUser.setFullName(name);
-                newUser.setRole(dbRole);
-                newUser.setStatus("ACTIVE");
-
-                boolean inserted = userDAO.insert(newUser);
-                if (inserted) {
-                    loadFromDatabase();
-                    ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Thêm tài khoản thành công!", ToastNotification.Type.SUCCESS);
                 } else {
-                    ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thêm tài khoản vào CSDL!", ToastNotification.Type.ERROR);
+                    User checkDup = userDAO.findByUsername(username);
+                    if (checkDup != null) {
+                        ThemeManager.showConfirmDialog(dlg, "Tài khoản đã tồn tại!", "Thông báo");
+                        return;
+                    }
+
+                    User newUser = new User();
+                    newUser.setUsername(username);
+                    newUser.setPasswordHash(PasswordUtil.hashPassword(pass));
+                    newUser.setFullName(name);
+                    newUser.setRole(dbRole);
+                    newUser.setStatus("ACTIVE");
+
+                    boolean inserted = userDAO.insert(newUser);
+                    if (inserted) {
+                        loadFromDatabase();
+                        ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Thêm tài khoản thành công!", ToastNotification.Type.SUCCESS);
+                    } else {
+                        ToastNotification.show(SwingUtilities.getWindowAncestor(this), "Lỗi thêm tài khoản vào CSDL!", ToastNotification.Type.ERROR);
+                    }
                 }
+                dlg.dispose();
+            } catch (Exception ex) {
+                ThemeManager.showInfoDialog(dlg, "Lỗi thực thi CSDL: " + ex.getMessage(), "Lỗi hệ thống");
             }
-            dlg.dispose();
         });
 
         btnRow.add(cancel); btnRow.add(save);

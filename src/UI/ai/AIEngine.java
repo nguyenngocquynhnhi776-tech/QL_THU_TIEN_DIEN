@@ -40,6 +40,8 @@ public class AIEngine {
      * @param current      current month's usage
      * @return AnomalyResult (type=NONE if normal)
      */
+    
+    // PHÁT HIỆN TĂNG GIẢM BẤT THƯỜNG
     public static AnomalyResult detectAnomaly(String householdId, double[] history, double current) {
         if (history == null || history.length == 0) {
             return new AnomalyResult(householdId, AnomalyType.NONE, current, 0, 0, "Chưa đủ dữ liệu lịch sử.");
@@ -71,6 +73,8 @@ public class AIEngine {
     }
 
     /** Batch anomaly detection across multiple households. */
+    
+    // QUÉT TOÀN BỘ HỘ DÂN
     public static List<AnomalyResult> detectAllAnomalies(String[] ids, double[][] histories, double[] currents) {
         List<AnomalyResult> results = new ArrayList<>();
         for (int i = 0; i < ids.length; i++) {
@@ -91,6 +95,8 @@ public class AIEngine {
      * @param periods number of future periods to forecast
      * @return array of forecasted values
      */
+    
+    // DỰ BÁO TRUNG BÌNH ĐỘNG
     public static double[] movingAverageForecast(double[] data, int window, int periods) {
         if (data == null || data.length == 0) return new double[periods];
         int len = data.length;
@@ -119,6 +125,8 @@ public class AIEngine {
      * @param periods number of future periods to forecast
      * @return forecasted values array
      */
+    
+    // DỰ BÁO QUY HỒI TUYẾN TÍNH
     public static double[] linearRegressionForecast(double[] data, int periods) {
         if (data == null || data.length < 2) return new double[periods];
         int n = data.length;
@@ -152,13 +160,16 @@ public class AIEngine {
      * @param maxDaysLate   maximum days late on a single payment
      * @return DebtRisk level
      */
+    
+    // CHẤM ĐIỂM NGUY CƠ NỢ TIỀN ĐIỆN
     public static DebtRisk classifyDebtRisk(int latePayments, int maxDaysLate) {
         if (latePayments == 0 && maxDaysLate == 0) return DebtRisk.LOW;
         if (latePayments >= 3 || maxDaysLate >= 30)  return DebtRisk.HIGH;
         if (latePayments >= 1 || maxDaysLate >= 10)  return DebtRisk.MEDIUM;
         return DebtRisk.LOW;
     }
-
+    
+    // TRẢ VỀ KẾT QUẢ
     public static String debtRiskLabel(DebtRisk risk) {
         switch (risk) {
             case HIGH:   return "Nguy cơ cao";

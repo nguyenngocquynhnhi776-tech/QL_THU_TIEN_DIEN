@@ -41,13 +41,12 @@ public interface UserDAO {
     boolean update(User user);
 
     /**
-     * Performs a soft delete by marking the user's status as 'INACTIVE' (or 'LOCKED').
-     * The database does not delete the row to maintain integrity.
+     * Deletes a user permanently from the database (hard delete).
      *
-     * @param userId the ID of the user to soft delete
+     * @param userId the ID of the user to delete
      * @return true if successful, false otherwise
      */
-    boolean softDelete(int userId);
+    boolean delete(int userId);
 
     /**
      * Returns a list of all active or locked users (excludes soft-deleted/INACTIVE users).

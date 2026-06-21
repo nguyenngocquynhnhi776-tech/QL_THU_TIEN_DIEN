@@ -1,3 +1,5 @@
+// MÃ HÓA/KIỂM TRA MẬT KHẨU
+
 package util;
 
 /**
@@ -21,7 +23,7 @@ public class PasswordUtil {
     /**
      * Verifies a plaintext password against a BCrypt hash.
      *
-     * @param plainPassword the plaintext password to verify
+     * @param plainPassword  the plaintext password to verify
      * @param hashedPassword the hashed password
      * @return true if the password matches the hash, false otherwise
      */

@@ -104,6 +104,8 @@ public class PermissionManager {
      * Guard action by checking permission and showing message dialog if denied.
      * Returns true if authorized, false otherwise.
      */
+    
+    // KIỂM TRA QUYỀN TRUY CẬP
     public synchronized boolean checkPermission(Permission p) {
         if (hasPermission(p)) {
             return true;

@@ -614,7 +614,7 @@ public class StatisticsPanel extends BasePanel {
 
         // Write HTML to temporary file and open in default web browser
         try {
-            File tempReport = new File("C:/Users/ASUS/.gemini/antigravity-ide/brain/5f735e7d-7f61-4c85-9797-0f3413203d8f/BaoCao.html");
+            File tempReport = new File(System.getProperty("java.io.tmpdir"), "BaoCao.html");
             tempReport.getParentFile().mkdirs();
             try (FileWriter fw = new FileWriter(tempReport)) {
                 fw.write(html.toString());

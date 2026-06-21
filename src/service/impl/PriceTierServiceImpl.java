@@ -62,7 +62,8 @@ public class PriceTierServiceImpl implements PriceTierService {
                 // Unlimited (last tier)
                 bandSize = remaining;
             } else {
-                bandSize = Math.min(remaining, to - from + 1);
+                int limit = (from == 0) ? to : (to - from + 1);
+                bandSize = Math.min(remaining, limit);
             }
 
             if (bandSize > 0) {

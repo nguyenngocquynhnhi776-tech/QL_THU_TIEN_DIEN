@@ -1,3 +1,5 @@
+// MODEL HỘ GIA ĐÌNH
+
 package model;
 
 import java.sql.Timestamp;

@@ -37,6 +37,7 @@ public class DatabaseInitializer {
             }
             migrateRoleColumn(conn);
             seedAdminUser(conn);
+            cleanUpInactiveUsers(conn);
 
             // 2. Area Table
             boolean areaTableExists = checkTableExists(conn, "AREA");
@@ -66,6 +67,10 @@ public class DatabaseInitializer {
                 System.out.println("PRICE_TIER table already exists.");
             }
             seedPriceTiers(conn);
+            // Sync pricing tier 1 value to official rate (1806) in case it was initialized with legacy (1810)
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("UPDATE PRICE_TIER SET UnitPrice = 1806 WHERE LevelFrom = 0 AND LevelTo = 50 AND UnitPrice = 1810");
+            }
 
             // 5. Meter Reading Table
             if (!checkTableExists(conn, "METER_READING")) {
@@ -404,6 +409,16 @@ public class DatabaseInitializer {
                 
                 pstmt.executeUpdate();
                 System.out.println("Default admin user (username: admin, password: admin123) seeded successfully.");
+            }
+        }
+    }
+
+    private static void cleanUpInactiveUsers(Connection conn) throws SQLException {
+        String sql = "DELETE FROM USERS WHERE Status = 'INACTIVE'";
+        try (Statement stmt = conn.createStatement()) {
+            int deleted = stmt.executeUpdate(sql);
+            if (deleted > 0) {
+                System.out.println("Cleaned up " + deleted + " legacy soft-deleted users (INACTIVE) from the USERS table.");
             }
         }
     }

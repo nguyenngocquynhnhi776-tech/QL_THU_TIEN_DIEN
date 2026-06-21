@@ -83,8 +83,10 @@ public class PaymentDAOImpl implements PaymentDAO {
 
     @Override
     public double getMonthlyRevenue(int month, int year) {
-        String sql = "SELECT ISNULL(SUM(Amount), 0) FROM PAYMENT " +
-                     "WHERE MONTH(PaymentDate) = ? AND YEAR(PaymentDate) = ?";
+        String sql = "SELECT ISNULL(SUM(p.Amount), 0) FROM PAYMENT p " +
+                     "JOIN BILL b ON p.BillID = b.BillID " +
+                     "JOIN METER_READING mr ON b.ReadingID = mr.ReadingID " +
+                     "WHERE mr.Month = ? AND mr.Year = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, month);
@@ -101,19 +103,21 @@ public class PaymentDAOImpl implements PaymentDAO {
     @Override
     public double[] getRevenueLastNMonths(int n) {
         double[] result = new double[n];
-        // Query last N months by going back from today
-        String sql = "SELECT YEAR(PaymentDate) AS yr, MONTH(PaymentDate) AS mo, " +
-                     "ISNULL(SUM(Amount), 0) AS total " +
-                     "FROM PAYMENT " +
-                     "WHERE PaymentDate >= DATEADD(MONTH, -" + n + ", GETDATE()) " +
-                     "GROUP BY YEAR(PaymentDate), MONTH(PaymentDate) " +
-                     "ORDER BY yr ASC, mo ASC";
+        // Tính từ tháng hiện tại lùi về N tháng (ví dụ n=6)
+        String sql = "SELECT TOP " + n + " mr.Year AS yr, mr.Month AS mo, " +
+                     "ISNULL(SUM(p.Amount), 0) AS total " +
+                     "FROM PAYMENT p " +
+                     "JOIN BILL b ON p.BillID = b.BillID " +
+                     "JOIN METER_READING mr ON b.ReadingID = mr.ReadingID " +
+                     "GROUP BY mr.Year, mr.Month " +
+                     "ORDER BY yr DESC, mo DESC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-            int idx = 0;
-            while (rs.next() && idx < n) {
-                result[idx++] = rs.getDouble("total");
+            int idx = n - 1;
+            while (rs.next() && idx >= 0) {
+                // Kết quả được ORDER BY DESC nên lưu từ cuối mảng lên đầu
+                result[idx--] = rs.getDouble("total");
             }
         } catch (SQLException e) {
             System.err.println("PaymentDAOImpl.getRevenueLastNMonths: " + e.getMessage());

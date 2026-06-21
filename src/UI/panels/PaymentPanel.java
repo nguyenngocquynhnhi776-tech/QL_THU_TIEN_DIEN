@@ -1,8 +1,9 @@
+// THANH TOÁN
+
 package UI.panels;
 
 import UI.components.*;
-import UI.services.PdfExportService;
-import UI.services.StubPdfExportService;
+import UI.services.RealPdfExportService;
 import UI.theme.ThemeManager;
 import model.Bill;
 import model.Payment;
@@ -15,8 +16,10 @@ import session.UserSession;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -34,9 +37,9 @@ import java.util.List;
 public class PaymentPanel extends BasePanel {
 
     // ── Services ─────────────────────────────────────────────────────────────
-    private final BillService      billService    = new BillServiceImpl();
-    private final PaymentService   paymentService = new PaymentServiceImpl();
-    private final PdfExportService pdfService     = StubPdfExportService.getInstance();
+    private final BillService         billService    = new BillServiceImpl();
+    private final PaymentService      paymentService = new PaymentServiceImpl();
+    private final RealPdfExportService pdfService    = RealPdfExportService.getInstance();
 
     // ── Section 1: Unpaid invoices ────────────────────────────────────────────
     private SearchField  searchField;
@@ -573,11 +576,7 @@ public class PaymentPanel extends BasePanel {
         RoundedButton printBtn = new RoundedButton("🖨️  Xuất PDF & In",
                 8, new Color(0x2E7D32));
         printBtn.setPreferredSize(new Dimension(150, 38));
-        printBtn.addActionListener(e -> {
-            pdfService.exportPaymentReceipt(currentBill.getBillCode(),
-                    "C:/BienLai/" + currentBill.getBillCode() + ".pdf");
-            dialog.dispose();
-        });
+        printBtn.addActionListener(e -> exportReceiptPdf(dialog));
         RoundedButton closeBtn = new RoundedButton("Đóng", 8, new Color(0x9E9E9E));
         closeBtn.setPreferredSize(new Dimension(80, 38));
         closeBtn.addActionListener(e -> dialog.dispose());
@@ -590,6 +589,67 @@ public class PaymentPanel extends BasePanel {
 
         dialog.add(content);
         dialog.setVisible(true);
+    }
+
+    // =========================================================================
+    // PDF EXPORT — chọn nơi lưu, render, mở file
+    // =========================================================================
+    private void exportReceiptPdf(JDialog parentDialog) {
+        if (currentBill == null || lastCompletedPayment == null) return;
+
+        // Collector name
+        String collector = UserSession.getInstance().getFullName();
+        if (collector == null || collector.isBlank())
+            collector = UserSession.getInstance().getUsername();
+        if (collector == null || collector.isBlank())
+            collector = "Nhân viên thu tiền";
+
+        // ── File chooser ──────────────────────────────────────────────────
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Lưu biên lai PDF");
+        fc.setFileFilter(new FileNameExtensionFilter("PDF files (*.pdf)", "pdf"));
+        fc.setSelectedFile(new File(
+            System.getProperty("user.home") + File.separator
+            + "BienLai_" + currentBill.getBillCode() + ".pdf"));
+
+        int result = fc.showSaveDialog(parentDialog);
+        if (result != JFileChooser.APPROVE_OPTION) return;
+
+        File outFile = fc.getSelectedFile();
+        // Ensure .pdf extension
+        if (!outFile.getName().toLowerCase().endsWith(".pdf")) {
+            outFile = new File(outFile.getAbsolutePath() + ".pdf");
+        }
+
+        // ── Supply data to service and export ────────────────────────────
+        pdfService.setReceiptData(currentBill, lastCompletedPayment, collector);
+        boolean ok = pdfService.exportPaymentReceipt(
+                currentBill.getBillCode(), outFile.getAbsolutePath());
+
+        if (ok) {
+            parentDialog.dispose();
+            // Try to open the PDF automatically
+            final File finalFile = outFile;
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    if (java.awt.Desktop.isDesktopSupported()) {
+                        java.awt.Desktop.getDesktop().open(finalFile);
+                    }
+                } catch (Exception ex) {
+                    // Desktop.open not supported — show path
+                    ThemeManager.showInfoDialog(PaymentPanel.this,
+                        "Đã lưu biên lai tại:\n" + finalFile.getAbsolutePath(),
+                        "Xuất PDF thành công");
+                }
+            });
+            ToastNotification.show(SwingUtilities.getWindowAncestor(this),
+                "Đã xuất PDF: " + outFile.getName(),
+                ToastNotification.Type.SUCCESS);
+        } else {
+            ThemeManager.showInfoDialog(parentDialog,
+                "Không thể xuất PDF. Vui lòng thử lại hoặc kiểm tra máy in PDF.",
+                "Lỗi xuất PDF");
+        }
     }
 
     private String receiptRow(String lbl, String val) {
