@@ -290,7 +290,7 @@ public class NotificationPanel extends BasePanel {
 
                 // Icon symbol căn giữa trong hình tròn
                 g2.setColor(fgTheme);
-                g2.setFont(new Font("Segoe UI Symbol", Font.BOLD, 14));
+                g2.setFont(new Font("Dialog", Font.BOLD, 14));
                 FontMetrics fm = g2.getFontMetrics();
                 int tx = x + (size - fm.stringWidth(iconChar)) / 2;
                 int ty = y + (size + fm.getAscent() - fm.getDescent()) / 2 - 1;

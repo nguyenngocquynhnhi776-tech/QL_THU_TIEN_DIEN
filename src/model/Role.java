@@ -2,6 +2,7 @@ package model;
 
 /**
  * Role enum representing the user roles in the application.
+ * Enum là một kiểu dữ liệu dùng để giới hạn một biến chỉ được nhận một số giá trị cố định đã định nghĩa trước.
  */
 public enum Role {
     ADMIN("ADMIN", "Quản trị viên"),

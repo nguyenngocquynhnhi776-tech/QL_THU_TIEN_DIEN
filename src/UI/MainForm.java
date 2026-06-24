@@ -40,7 +40,8 @@ public class MainForm extends JFrame {
         "Tính tiền điện","Hóa đơn","Thanh toán","Thống kê","AI Phân tích","Thông báo","Hệ thống"
     };
     private static final String[] ICONS = {
-        "\u25A3","\u263A","\u2302","\u2261","\u00A4","\u2630","\u2714","\u21D7","\u25C8","\u25CE","\u2699"
+        // DASHBOARD  USERS   HOUSEHOLD  INDEX   BILLING  INVOICE  PAYMENT  STATS   AI      NOTIF   SYSTEM
+        "\u25A3",    "\u263A", "\u2302",  "\u2261","\u00A4","\u25A4","\u2714","\u2191","\u25CE","\u25CB","\u2605"
     };
 
     public MainForm() {
@@ -262,29 +263,75 @@ public class MainForm extends JFrame {
         urole.setForeground(new Color(255, 255, 255, 160));
         userInfo.add(uname); userInfo.add(urole);
 
-        JButton logoutBtn = new JButton("\u2717") {
+        final Color LOGOUT_RED = new Color(220, 60, 60);
+        JButton logoutBtn = new JButton() {
+            private boolean hovered = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hovered = true;  repaint(); }
+                    @Override public void mouseExited(MouseEvent e)  { hovered = false; repaint(); }
+                });
+            }
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(255, 255, 255, 20));
-                g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+                g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+
+                // Hover background circle
+                if (hovered) {
+                    g2.setColor(new Color(220, 60, 60, 30));
+                    g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, 8, 8);
+                }
+
+                int w = getWidth();
+                int h = getHeight();
+                Color iconColor = hovered ? new Color(255, 80, 80) : LOGOUT_RED;
+                g2.setColor(iconColor);
+
+                // --- Draw logout icon centered ---
+                int size = Math.min(w, h) - 8;  // icon size with padding
+                int ox = (w - size) / 2;         // origin x
+                int oy = (h - size) / 2;         // origin y
+
+                float stroke = Math.max(1.8f, size * 0.10f);
+                g2.setStroke(new BasicStroke(stroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                // Open circle arc: gap on the right side (~60 deg gap), start from ~30 deg
+                int arcPad = (int)(size * 0.05f);
+                g2.drawArc(ox + arcPad, oy + arcPad,
+                           size - arcPad*2, size - arcPad*2,
+                           30, 300);   // 300 deg arc, 60 deg gap on the right
+
+                // Arrow shaft (horizontal, center of icon)
+                int cx = ox + size / 2;
+                int cy = oy + size / 2;
+                int shaftLen = (int)(size * 0.42f);
+                int shaftX1  = cx - (int)(size * 0.10f);
+                int shaftX2  = cx + shaftLen - (int)(size * 0.10f);
+                g2.drawLine(shaftX1, cy, shaftX2, cy);
+
+                // Arrowhead
+                int ah = (int)(size * 0.18f); // arrowhead half-height
+                int[] xPts = { shaftX2, shaftX2 - ah, shaftX2 - ah };
+                int[] yPts = { cy,      cy - ah,       cy + ah       };
+                g2.fillPolygon(xPts, yPts, 3);
+
                 g2.dispose();
-                super.paintComponent(g);
             }
         };
-        logoutBtn.setFont(UIConstants.FONT_NORMAL_BOLD);
-        logoutBtn.setForeground(new Color(255,100,100));
+        logoutBtn.setPreferredSize(new Dimension(36, 36));
         logoutBtn.setContentAreaFilled(false); logoutBtn.setBorderPainted(false);
         logoutBtn.setFocusPainted(false); logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoutBtn.setToolTipText("Đăng xuất");
         logoutBtn.addActionListener(e -> {
             boolean ok = ThemeManager.showConfirmDialog(this, "Bạn có chắc muốn đăng xuất?", "Đăng xuất");
-            if (ok) { 
+            if (ok) {
                 UserSession.getInstance().logout();
-                new LoginFrame().setVisible(true); 
-                dispose(); 
+                new LoginFrame().setVisible(true);
+                dispose();
             }
         });
+
 
         profileCard.add(avatar,    BorderLayout.WEST);
         profileCard.add(userInfo,  BorderLayout.CENTER);
@@ -336,8 +383,8 @@ public class MainForm extends JFrame {
         topSearch.setPreferredSize(new Dimension(260, 36));
 
         // Notification bell
-        JButton bellBtn = iconButton("\uD83D\uDD14", UIConstants.COLOR_TEXT_SECONDARY);
-        bellBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+        JButton bellBtn = iconButton("\u25CE", UIConstants.COLOR_TEXT_SECONDARY);
+        bellBtn.setFont(UIConstants.FONT_ICON_SIDEBAR);
         bellBtn.addActionListener(e -> {
             menuButtons.forEach(b -> b.setSelectedStatus(false));
             int notifIdx = java.util.Arrays.asList(CARDS).indexOf("NOTIF");
@@ -382,7 +429,7 @@ public class MainForm extends JFrame {
         bar.setPreferredSize(new Dimension(0, UIConstants.STATUSBAR_HEIGHT));
         bar.setBorder(BorderFactory.createEmptyBorder(0, UIConstants.SP_MD, 0, UIConstants.SP_MD));
 
-        JLabel leftLbl = new JLabel("\u26A1  Electra Manager AI  |  Kết nối SQL Server: OK");
+        JLabel leftLbl = new JLabel("*  Electra Manager AI  |  Kết nối SQL Server: OK");
         leftLbl.setFont(UIConstants.FONT_SMALL);
         leftLbl.setForeground(new Color(255, 255, 255, 180));
 

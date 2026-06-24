@@ -80,7 +80,7 @@ public class StatsCard extends JPanel {
                 g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
                 // Icon
                 g2.setColor(iconColor);
-                g2.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 20));
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
                 FontMetrics fm = g2.getFontMetrics();
                 int tx = (getWidth()  - fm.stringWidth(icon)) / 2;
                 int ty = (getHeight() + fm.getAscent() - fm.getDescent()) / 2 - 1;

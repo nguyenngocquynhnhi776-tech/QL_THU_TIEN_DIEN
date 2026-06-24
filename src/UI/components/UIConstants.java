@@ -100,7 +100,9 @@ public class UIConstants {
     public static final Font FONT_SMALL        = new Font("Segoe UI", Font.PLAIN, 12);
     public static final Font FONT_SMALL_BOLD   = new Font("Segoe UI", Font.BOLD, 12);
     public static final Font FONT_MONO         = new Font("Consolas", Font.PLAIN, 12);
-    public static final Font FONT_ICON_SIDEBAR = new Font("Segoe UI Symbol", Font.PLAIN, 16);
+    public static final Font FONT_ICON_SIDEBAR = new Font("Dialog", Font.PLAIN, 16);
+    public static final Font FONT_ICON_EMOJI   = new Font("Segoe UI Emoji", Font.PLAIN, 18);
+    public static final Font FONT_ICON_SYMBOL  = new Font("Dialog", Font.PLAIN, 14);
     public static final Font FONT_STAT_VALUE   = new Font("Segoe UI", Font.BOLD, 24);
 
     // =====================================================================
